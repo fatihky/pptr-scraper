@@ -72,7 +72,7 @@ app.get('/scrape', async (req, res) => {
 });
 
 async function main() {
-  browser = await launch({ headless: false });
+  browser = await launch({ headless: 'new' });
   console.log('Browser launched...');
 
   server = app.listen(port);
