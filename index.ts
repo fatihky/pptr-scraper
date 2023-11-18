@@ -72,7 +72,7 @@ app.get('/scrape', async (req, res) => {
 });
 
 async function main() {
-  browser = await launch({ headless: 'new' });
+  browser = await launch({ headless: false });
   console.log('Browser launched...');
 
   server = app.listen(port);
@@ -93,11 +93,13 @@ nodeCleanup(() => {
     server.close();
   }
 
-  if (browser) {
-    console.log('Closing browser...');
+  pool.clear().then(() => {
+    if (browser) {
+      console.log('Closing browser...');
 
-    browser
-      .close()
-      .catch((err) => console.log('ERROR: Can not close browser:', err));
-  }
+      browser
+        .close()
+        .catch((err) => console.log('ERROR: Can not close browser:', err));
+    }
+  });
 });
