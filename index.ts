@@ -45,6 +45,7 @@ app.get('/scrape', async (req, res) => {
 
   try {
     const acquireStart = Date.now();
+
     page = await pool.acquire();
 
     res.set(
@@ -63,6 +64,8 @@ app.get('/scrape', async (req, res) => {
       headers: resp?.headers() ?? {},
     } satisfies ScrapeResult);
   } catch (err) {
+    console.error('Scrape işlemi hata ile sonuçlandı:', err);
+
     res.status(500).json({ error: err });
   } finally {
     if (page) {
@@ -72,7 +75,7 @@ app.get('/scrape', async (req, res) => {
 });
 
 async function main() {
-  browser = await launch({ headless: true });
+  browser = await launch({ headless: true, timeout: 60000 });
   console.log('Browser launched...');
 
   server = app.listen(port);
