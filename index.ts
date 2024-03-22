@@ -1,5 +1,7 @@
 import 'dotenv/config';
 
+import { program } from 'commander';
+import minimist from 'minimist';
 import assert from 'assert';
 import express from 'express';
 import { newInjectedPage } from 'fingerprint-injector';
@@ -74,8 +76,18 @@ app.get('/scrape', async (req, res) => {
   }
 });
 
+// --no-headless dersek { headless: false } geliyor
+// böylece tarayıcı görünür oluyor.
+program.option('--no-headless', undefined, true).parse();
+
 async function main() {
-  browser = await launch({ headless: true, timeout: 60000 });
+  const opts = program.opts<{ headless: boolean }>();
+
+  browser = await launch({
+    headless: opts.headless,
+    timeout: 60000,
+    userDataDir: './userData',
+  });
   console.log('Browser launched...');
 
   server = app.listen(port);
