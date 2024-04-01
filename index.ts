@@ -12,6 +12,7 @@ import { Browser, Page, launch } from 'puppeteer';
 
 // /scrape API ucundan dönülecek yanıt
 interface ScrapeResult {
+  status: number;
   url: string;
   durationMs: number;
   contents: string;
@@ -59,11 +60,18 @@ app.get('/scrape', async (req, res) => {
 
     const resp = await page.goto(url);
 
+    if (!resp) {
+      res.json(500).json({ error: 'page.goto did not return any response' });
+
+      return;
+    }
+
     res.json({
+      status: resp.status(),
       url: page.url(),
       durationMs: Date.now() - startTime,
       contents: await page.content(),
-      headers: resp?.headers() ?? {},
+      headers: resp.headers() ?? {},
     } satisfies ScrapeResult);
   } catch (err) {
     console.error('Scrape işlemi hata ile sonuçlandı:', err);
@@ -71,7 +79,7 @@ app.get('/scrape', async (req, res) => {
     res.status(500).json({ error: err });
   } finally {
     if (page) {
-      pool.release(page);
+      await pool.release(page);
     }
   }
 });
