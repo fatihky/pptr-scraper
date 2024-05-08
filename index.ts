@@ -1,8 +1,7 @@
 import 'dotenv/config';
 
-import { program } from 'commander';
-import minimist from 'minimist';
 import assert from 'assert';
+import { program } from 'commander';
 import express from 'express';
 import { newInjectedPage } from 'fingerprint-injector';
 import { createPool } from 'generic-pool';
@@ -58,7 +57,7 @@ app.get('/scrape', async (req, res) => {
 
     const startTime = Date.now();
 
-    const resp = await page.goto(url);
+    const resp = await page.goto(url, { timeout: 180000 });
 
     if (!resp) {
       res.json(500).json({ error: 'page.goto did not return any response' });
@@ -93,7 +92,7 @@ async function main() {
 
   browser = await launch({
     headless: opts.headless,
-    timeout: 60000,
+    timeout: 180000,
     userDataDir: './userData',
   });
   console.log('Browser launched...');
