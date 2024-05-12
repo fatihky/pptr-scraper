@@ -20,14 +20,29 @@ interface ScrapeResult {
 
 let browser: Browser | null = null;
 
-const pool = createPool<Page>({
-  create: async () => {
-    assert(browser);
+const pool = createPool<Page>(
+  {
+    create: async () => {
+      assert(browser);
 
-    return await newInjectedPage(browser);
+      console.log('pool: create a page');
+
+      return await newInjectedPage(browser);
+    },
+    destroy: async (page) => {
+      console.log('pool: close a page');
+
+      await page.close().catch((err) => {
+        console.log('Failed to close the page. Ignoring error:', err);
+      });
+    },
   },
-  destroy: async (page) => await page.close(),
-});
+  {
+    max: 1,
+    idleTimeoutMillis: 10 * 60 * 1000, // bir tarayıcı sekmesi 10 dakika boyunca boşta durabilir.
+    evictionRunIntervalMillis: 10 * 60 * 1000, // 10 dakikada bir kullanılmayan sekmeleri kapatır
+  }
+);
 
 const app = express();
 const port = Number(process.env.PORT ?? '7000');
@@ -65,6 +80,8 @@ app.get('/scrape', async (req, res) => {
       return;
     }
 
+    await new Promise((r) => setTimeout(r, 5000));
+
     res.json({
       status: resp.status(),
       url: page.url(),
@@ -73,9 +90,13 @@ app.get('/scrape', async (req, res) => {
       headers: resp.headers() ?? {},
     } satisfies ScrapeResult);
   } catch (err) {
-    console.error('Scrape işlemi hata ile sonuçlandı:', err);
+    console.error(
+      'Scrape işlemi hata ile sonuçlandı:',
+      err,
+      err instanceof Error ? err.constructor : null
+    );
 
-    res.status(500).json({ error: err });
+    res.status(500).json({ error: (err as Error).message });
   } finally {
     if (page) {
       await pool.release(page);
