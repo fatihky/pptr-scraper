@@ -115,6 +115,7 @@ async function main() {
     headless: opts.headless,
     timeout: 180000,
     userDataDir: './userData',
+    args: ['--no-sandbox'],
   });
   console.log('Browser launched...');
 
