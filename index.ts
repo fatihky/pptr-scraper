@@ -52,6 +52,8 @@ let server: Server | null = null;
 app.get('/scrape', async (req, res) => {
   const { url } = req.query;
 
+  console.log('Tara:', url);
+
   if (typeof url !== 'string') {
     return res
       .status(400)
@@ -79,8 +81,6 @@ app.get('/scrape', async (req, res) => {
 
       return;
     }
-
-    await new Promise((r) => setTimeout(r, 5000));
 
     res.json({
       status: resp.status(),
