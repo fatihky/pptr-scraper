@@ -21,12 +21,59 @@ interface ScrapeResult {
 
 let browser: Browser | null = null;
 
+const opts = program.opts<{ headless: boolean }>();
+
+const launchOptions = {
+  headless: opts.headless,
+  timeout: 180000,
+  userDataDir: './userData',
+  args: ['--no-sandbox'],
+};
+
+async function newPage(attempts = 1): Promise<Page> {
+  const maxAttempts = 5;
+
+  try {
+    if (!browser) {
+      browser = await launch(launchOptions);
+    }
+
+    return await browser.newPage();
+  } catch (err) {
+    console.log(
+      'Cannot create a page. Attempt %d. Error: %s',
+      attempts,
+      err instanceof Error ? err.message : JSON.stringify(err)
+    );
+
+    if (attempts >= maxAttempts) {
+      throw new Error('Cannot create a new page');
+    }
+
+    // refresh the browser
+    try {
+      await browser?.close();
+    } catch {
+      // ignore
+    }
+
+    browser = null;
+
+    return await newPage(attempts + 1);
+  }
+}
+
 const pool = createPool<Page>(
   {
     create: async () => {
       assert(browser);
 
       console.log('pool: create a page');
+
+      // check if the browser is alive by creating a dummy page
+      const dummy = await newPage();
+
+      await dummy.close();
 
       return await newInjectedPage(browser);
     },
@@ -144,14 +191,7 @@ app.get('/scrape', async (req, res) => {
 program.option('--no-headless', undefined, true).parse();
 
 async function main() {
-  const opts = program.opts<{ headless: boolean }>();
-
-  browser = await launch({
-    headless: opts.headless,
-    timeout: 180000,
-    userDataDir: './userData',
-    args: ['--no-sandbox'],
-  });
+  browser = await launch(launchOptions);
   console.log('Browser launched...');
 
   server = app.listen(port);
