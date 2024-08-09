@@ -21,6 +21,10 @@ interface ScrapeResult {
 
 let browser: Browser | null = null;
 
+// --no-headless dersek { headless: false } geliyor
+// böylece tarayıcı görünür oluyor.
+program.option('--no-headless', undefined, true).parse();
+
 const opts = program.opts<{ headless: boolean }>();
 
 const launchOptions = {
@@ -185,10 +189,6 @@ app.get('/scrape', async (req, res) => {
     }
   }
 });
-
-// --no-headless dersek { headless: false } geliyor
-// böylece tarayıcı görünür oluyor.
-program.option('--no-headless', undefined, true).parse();
 
 async function main() {
   browser = await launch(launchOptions);
