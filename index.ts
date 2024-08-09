@@ -14,7 +14,8 @@ interface ScrapeResult {
   status: number;
   url: string;
   durationMs: number;
-  contents: string;
+  contentType: string;
+  contentsBase64: string;
   headers: Record<string, string>;
 }
 
@@ -74,6 +75,8 @@ app.get('/scrape', async (req, res) => {
 
     const startTime = Date.now();
 
+    await page.reload();
+
     const resp = await page.goto(url, { timeout: 180000 });
 
     if (!resp) {
@@ -82,11 +85,43 @@ app.get('/scrape', async (req, res) => {
       return;
     }
 
+    // const promise = new Promise<HTTPResponse>((resolve, reject) => {
+    //   let finished = false;
+
+    //   function handler(response: HTTPResponse) {
+    //     console.log('response:', response.status(), response.url(), response);
+
+    //     if (!finished) {
+    //       finished = true;
+    //       resolve(response);
+    //     }
+    //   }
+
+    //   page?.on('response', handler);
+
+    //   page
+    //     ?.goto(url, { timeout: 180000 })
+    //     .catch((err: Error) => {
+    //       finished = true;
+
+    //       reject(err);
+    //     })
+    //     .finally(() => page?.off('response', handler));
+    // });
+
+    // const response = await pTimeout(promise, 180000);
+
+    // console.log('ilk yanıt:', response.status(), response.url());
+    console.log('resp:', resp.status(), resp.statusText(), resp.headers());
+    const headers = resp.headers();
+    const contentType = headers['content-type'] ?? 'text/html';
+
     res.json({
       status: resp.status(),
       url: page.url(),
       durationMs: Date.now() - startTime,
-      contents: await page.content(),
+      contentType: contentType.slice(0, contentType.indexOf(';')).trim(),
+      contentsBase64: (await resp.buffer()).toString('base64'),
       headers: resp.headers() ?? {},
     } satisfies ScrapeResult);
   } catch (err) {
