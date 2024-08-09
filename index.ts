@@ -90,7 +90,7 @@ const pool = createPool<Page>(
     },
   },
   {
-    max: 1,
+    max: 2,
     idleTimeoutMillis: 10 * 60 * 1000, // bir tarayıcı sekmesi 10 dakika boyunca boşta durabilir.
     evictionRunIntervalMillis: 10 * 60 * 1000, // 10 dakikada bir kullanılmayan sekmeleri kapatır
   }
