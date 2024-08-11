@@ -304,12 +304,13 @@ app.get('/scrape', async (req, res) => {
 });
 
 async function main() {
+  const host = process.env.HOST ?? '127.0.0.1';
   browser = await puppeteer.launch(launchOptions);
   console.log('Browser launched...');
 
-  server = app.listen(port);
+  server = app.listen(port, host);
 
-  console.log(`server listening on http://127.0.0.1:${port}`);
+  console.log(`server listening on http://${host}:${port}`);
 }
 
 main().catch((err) => {
