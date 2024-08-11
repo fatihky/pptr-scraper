@@ -212,6 +212,10 @@ async function scrape(
   url: string,
   attempts = 1
 ): Promise<HTTPResponse | null> {
+  if (attempts > maxAttempts) {
+    throw new MaxScrapeAttemptsExceededError(url);
+  }
+
   let resp = await page.goto(url, {
     timeout: 180000,
     waitUntil: 'networkidle0',
@@ -225,10 +229,6 @@ async function scrape(
     console.log(
       'Cloudflare mitigated our browsing. Try to automatically pass.'
     );
-
-    if (attempts >= maxAttempts) {
-      throw new MaxScrapeAttemptsExceededError(url);
-    }
 
     await solveCloudflareTurnstile(page);
 
@@ -275,36 +275,10 @@ app.get('/scrape', async (req, res) => {
       return;
     }
 
-    // const promise = new Promise<HTTPResponse>((resolve, reject) => {
-    //   let finished = false;
-
-    //   function handler(response: HTTPResponse) {
-    //     console.log('response:', response.status(), response.url(), response);
-
-    //     if (!finished) {
-    //       finished = true;
-    //       resolve(response);
-    //     }
-    //   }
-
-    //   page?.on('response', handler);
-
-    //   page
-    //     ?.goto(url, { timeout: 180000 })
-    //     .catch((err: Error) => {
-    //       finished = true;
-
-    //       reject(err);
-    //     })
-    //     .finally(() => page?.off('response', handler));
-    // });
-
-    // const response = await pTimeout(promise, 180000);
-
-    // console.log('ilk yanıt:', response.status(), response.url());
-    console.log('resp:', resp.status(), resp.statusText(), resp.headers());
     const headers = resp.headers();
     const contentType = headers['content-type'] ?? 'text/html';
+
+    console.log('resp:', resp.status(), resp.statusText(), resp.headers());
 
     res.json({
       status: resp.status(),
