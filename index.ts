@@ -295,6 +295,10 @@ app.get('/scrape', async (req, res) => {
       err instanceof Error ? err.constructor : null
     );
 
+    await page.screenshot({
+      path: `${Date.now()}-${new URL(url).host}-failed.screenshot.png`,
+    });
+
     res.status(500).json({ error: (err as Error).message });
   } finally {
     if (page) {
