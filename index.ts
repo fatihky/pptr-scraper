@@ -1,5 +1,6 @@
 import 'dotenv/config';
 
+import { Solver } from '2captcha';
 import assert from 'assert';
 import { program } from 'commander';
 import express from 'express';
@@ -7,7 +8,49 @@ import { newInjectedPage } from 'fingerprint-injector';
 import { createPool } from 'generic-pool';
 import { Server } from 'http';
 import nodeCleanup from 'node-cleanup';
-import { Browser, Page, launch } from 'puppeteer';
+import { Browser, HTTPResponse, Page, PuppeteerLaunchOptions } from 'puppeteer';
+import puppeteer from 'puppeteer-extra';
+import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+
+const captchaSolver = new Solver(process.env.TWOCAPTCHA_API_KEY!);
+
+interface TurnstileConfiguration {
+  method: 'turnstile';
+  key: string;
+  sitekey: string;
+  pageurl: string;
+  data: string;
+  pagedata: string;
+  action: 'managed';
+  userAgent: string;
+  json: 1;
+}
+
+const turnstileScript = `
+var i = setInterval(() => {
+  if (window.turnstile) {
+    clearInterval(i);
+    window.turnstile.render = (a, b) => {
+      let p = {
+        method: "turnstile",
+        key: "${process.env.TWOCAPTCHA_API_KEY}",
+        sitekey: b.sitekey,
+        pageurl: window.location.href,
+        data: b.cData,
+        pagedata: b.chlPageData,
+        action: b.action,
+        userAgent: navigator.userAgent,
+        json: 1,
+      };
+      console.log('resolve turnstile with 2captcha:', JSON.stringify(p), 'callback:', b.callback.toString());
+      window.tsCallback = b.callback;
+      window.turnstileConfiguration = p;
+      return "foo";
+    };
+  }
+}, 50);
+`;
 
 // /scrape API ucundan dönülecek yanıt
 interface ScrapeResult {
@@ -27,19 +70,32 @@ program.option('--no-headless', undefined, true).parse();
 
 const opts = program.opts<{ headless: boolean }>();
 
-const launchOptions = {
+const launchOptions: PuppeteerLaunchOptions = {
   headless: opts.headless,
   timeout: 180000,
   userDataDir: './userData',
   args: ['--no-sandbox'],
 };
 
+// eklentileri kaydet
+puppeteer.use(
+  RecaptchaPlugin({
+    provider: {
+      id: '2captcha',
+      token: process.env.TWOCAPTCHA_API_KEY!,
+    },
+    visualFeedback: true,
+  })
+);
+
+puppeteer.use(StealthPlugin());
+
 async function newPage(attempts = 1): Promise<Page> {
   const maxAttempts = 5;
 
   try {
     if (!browser) {
-      browser = await launch(launchOptions);
+      browser = await puppeteer.launch(launchOptions);
     }
 
     return await browser.newPage();
@@ -79,7 +135,11 @@ const pool = createPool<Page>(
 
       await dummy.close();
 
-      return await newInjectedPage(browser);
+      const page = await newInjectedPage(browser);
+
+      page.evaluateOnNewDocument(turnstileScript);
+
+      return page;
     },
     destroy: async (page) => {
       console.log('pool: close a page');
@@ -100,6 +160,78 @@ const app = express();
 const port = Number(process.env.PORT ?? '7000');
 
 let server: Server | null = null;
+
+function isCloudflareMitigateResponse(resp: HTTPResponse): boolean {
+  return (
+    resp.status() === 403 && resp.headers()['cf-mitigated'] === 'challenge'
+  );
+}
+
+async function solveCloudflareTurnstile(page: Page) {
+  const turnstileConfiguration: TurnstileConfiguration = await page.evaluate(
+    () => (window as any).turnstileConfiguration
+  );
+
+  console.log('turnstile config:', turnstileConfiguration);
+
+  const solution = await captchaSolver.turnstile(
+    turnstileConfiguration.sitekey,
+    turnstileConfiguration.pageurl,
+    turnstileConfiguration
+  );
+
+  console.log('submit turnstile solution:', solution);
+
+  await page.evaluate(
+    (val) => (window as any).tsCallback?.(val),
+    solution.data
+  );
+
+  await page.waitForNetworkIdle();
+}
+
+class MaxScrapeAttemptsExceededError extends Error {
+  constructor(url: string) {
+    super(
+      `Max scrape attempts ${maxAttempts} exceeded while trying to scrape "${url}"`
+    );
+  }
+}
+
+const maxAttempts = 1;
+
+async function scrape(
+  page: Page,
+  url: string,
+  attempts = 1
+): Promise<HTTPResponse | null> {
+  let resp = await page.goto(url, {
+    timeout: 180000,
+    waitUntil: 'networkidle0',
+  });
+
+  if (resp === null) {
+    return null;
+  }
+
+  if (isCloudflareMitigateResponse(resp)) {
+    console.log(
+      'Cloudflare mitigated our browsing. Try to automatically pass.'
+    );
+
+    if (attempts >= maxAttempts) {
+      throw new MaxScrapeAttemptsExceededError(url);
+    }
+
+    await solveCloudflareTurnstile(page);
+
+    console.log('Try to scrape the same url again...');
+
+    return await scrape(page, url, attempts + 1);
+  }
+
+  return resp;
+}
 
 app.get('/scrape', async (req, res) => {
   const { url } = req.query;
@@ -128,7 +260,7 @@ app.get('/scrape', async (req, res) => {
 
     await page.reload();
 
-    const resp = await page.goto(url, { timeout: 180000 });
+    const resp = await scrape(page, url);
 
     if (!resp) {
       res.json(500).json({ error: 'page.goto did not return any response' });
@@ -191,7 +323,7 @@ app.get('/scrape', async (req, res) => {
 });
 
 async function main() {
-  browser = await launch(launchOptions);
+  browser = await puppeteer.launch(launchOptions);
   console.log('Browser launched...');
 
   server = app.listen(port);
