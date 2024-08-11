@@ -66,16 +66,23 @@ let browser: Browser | null = null;
 
 // --no-headless dersek { headless: false } geliyor
 // böylece tarayıcı görünür oluyor.
-program.option('--no-headless', undefined, true).parse();
+program
+  .option('--no-headless', undefined, true)
+  .option('--proxy <address>', 'Proxy address')
+  .parse();
 
-const opts = program.opts<{ headless: boolean }>();
+const opts = program.opts<{ headless: boolean; proxy: string | undefined }>();
 
 const launchOptions: PuppeteerLaunchOptions = {
   headless: opts.headless,
   timeout: 180000,
   userDataDir: './userData',
-  args: ['--no-sandbox'],
+  args: ['--no-sandbox'].concat(
+    opts.proxy ? `--proxy-server=${opts.proxy}` : []
+  ),
 };
+
+console.log('launch options:', launchOptions);
 
 // eklentileri kaydet
 puppeteer.use(
