@@ -66,12 +66,17 @@ let browser: Browser | null = null;
 
 // --no-headless dersek { headless: false } geliyor
 // böylece tarayıcı görünür oluyor.
-program
+const v = program
   .option('--no-headless', undefined, true)
   .option('--proxy <address>', 'Proxy address')
+  .option('--max-tabs <count>', 'Maximum open tabs', '2')
   .parse();
 
-const opts = program.opts<{ headless: boolean; proxy: string | undefined }>();
+const opts = program.opts<{
+  headless: boolean;
+  maxTabs: string;
+  proxy: string | undefined;
+}>();
 
 const launchOptions: PuppeteerLaunchOptions = {
   headless: opts.headless,
@@ -82,6 +87,7 @@ const launchOptions: PuppeteerLaunchOptions = {
   ),
 };
 
+console.log('program options:', opts);
 console.log('launch options:', launchOptions);
 
 // eklentileri kaydet
@@ -157,7 +163,7 @@ const pool = createPool<Page>(
     },
   },
   {
-    max: 2,
+    max: Number(opts.maxTabs),
     idleTimeoutMillis: 10 * 60 * 1000, // bir tarayıcı sekmesi 10 dakika boyunca boşta durabilir.
     evictionRunIntervalMillis: 10 * 60 * 1000, // 10 dakikada bir kullanılmayan sekmeleri kapatır
   }
@@ -295,7 +301,7 @@ app.get('/scrape', async (req, res) => {
       err instanceof Error ? err.constructor : null
     );
 
-    await page.screenshot({
+    await page?.screenshot({
       path: `${Date.now()}-${new URL(url).host}-failed.screenshot.png`,
     });
 
