@@ -24,6 +24,7 @@ let server: Server | null = null;
 
 app.get('/scrape', async (req, res) => {
   const { url } = req.query;
+  const infiniteScroll = 'infiniteScroll' in req.query;
 
   console.log('Tara:', url);
 
@@ -49,7 +50,11 @@ app.get('/scrape', async (req, res) => {
 
     await page.reload();
 
-    const resp = await scrape(page, url);
+    const resp = await scrape({
+      page,
+      url,
+      infiniteScroll,
+    });
 
     if (!resp) {
       res.json(500).json({ error: 'page.goto did not return any response' });
