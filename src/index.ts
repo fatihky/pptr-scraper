@@ -38,7 +38,7 @@ app.get('/scrape', async (req, res) => {
 
   const { url, infiniteScroll, screenshot } = result.data;
 
-  console.log('Tara:', url);
+  console.log('Tara:', url, { infiniteScroll, screenshot });
 
   if (typeof url !== 'string') {
     return res
