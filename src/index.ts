@@ -74,7 +74,12 @@ app.get('/scrape', async (req, res) => {
       return;
     }
 
-    const headers = resp.headers();
+    const headers = screenshot
+      ? {
+          'content-type': 'image/png',
+          'x-pptr-scraper-original-headers': JSON.stringify(resp.headers()),
+        }
+      : resp.headers();
     const contents = screenshot ? await page.screenshot() : await resp.buffer();
     const contentType = screenshot
       ? 'image/png'
@@ -88,7 +93,7 @@ app.get('/scrape', async (req, res) => {
       durationMs: Date.now() - startTime,
       contentType: contentType.slice(0, contentType.indexOf(';')).trim(),
       contentsBase64: contents.toString('base64'),
-      headers: resp.headers() ?? {},
+      headers,
     } satisfies ScrapeResult);
   } catch (err) {
     console.error(
