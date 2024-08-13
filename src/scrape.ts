@@ -169,7 +169,8 @@ export async function scrape(
 
   if (waitForNetwork) {
     try {
-      await page.waitForNetworkIdle();
+      // iki dakikaya kadar bağlantıların kapanmasını bekle
+      await page.waitForNetworkIdle({ timeout: 120000 });
     } catch {
       // ignore
     }
