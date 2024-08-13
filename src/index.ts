@@ -1,19 +1,11 @@
 import 'dotenv/config';
 
-import { Solver } from '2captcha';
-import assert from 'assert';
-import { program } from 'commander';
 import express from 'express';
-import { newInjectedPage } from 'fingerprint-injector';
-import { createPool } from 'generic-pool';
 import { Server } from 'http';
 import nodeCleanup from 'node-cleanup';
-import { Browser, HTTPResponse, Page, PuppeteerLaunchOptions } from 'puppeteer';
-import puppeteer from 'puppeteer-extra';
-import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-
-const captchaSolver = new Solver(process.env.TWOCAPTCHA_API_KEY!);
+import { HTTPResponse, Page } from 'puppeteer';
+import { captchaSolver } from './captchaSolver';
+import { getBrowser, launchBrowser, pool } from './pool';
 
 interface TurnstileConfiguration {
   method: 'turnstile';
@@ -27,31 +19,6 @@ interface TurnstileConfiguration {
   json: 1;
 }
 
-const turnstileScript = `
-var i = setInterval(() => {
-  if (window.turnstile) {
-    clearInterval(i);
-    window.turnstile.render = (a, b) => {
-      let p = {
-        method: "turnstile",
-        key: "${process.env.TWOCAPTCHA_API_KEY}",
-        sitekey: b.sitekey,
-        pageurl: window.location.href,
-        data: b.cData,
-        pagedata: b.chlPageData,
-        action: b.action,
-        userAgent: navigator.userAgent,
-        json: 1,
-      };
-      console.log('resolve turnstile with 2captcha:', JSON.stringify(p), 'callback:', b.callback.toString());
-      window.tsCallback = b.callback;
-      window.turnstileConfiguration = p;
-      return "foo";
-    };
-  }
-}, 50);
-`;
-
 // /scrape API ucundan dönülecek yanıt
 interface ScrapeResult {
   status: number;
@@ -61,113 +28,6 @@ interface ScrapeResult {
   contentsBase64: string;
   headers: Record<string, string>;
 }
-
-let browser: Browser | null = null;
-
-// --no-headless dersek { headless: false } geliyor
-// böylece tarayıcı görünür oluyor.
-const v = program
-  .option('--no-headless', undefined, true)
-  .option('--proxy <address>', 'Proxy address')
-  .option('--max-tabs <count>', 'Maximum open tabs', '2')
-  .parse();
-
-const opts = program.opts<{
-  headless: boolean;
-  maxTabs: string;
-  proxy: string | undefined;
-}>();
-
-const launchOptions: PuppeteerLaunchOptions = {
-  headless: opts.headless,
-  timeout: 180000,
-  userDataDir: './userData',
-  args: ['--no-sandbox'].concat(
-    opts.proxy ? `--proxy-server=${opts.proxy}` : []
-  ),
-};
-
-console.log('program options:', opts);
-console.log('launch options:', launchOptions);
-
-// eklentileri kaydet
-puppeteer.use(
-  RecaptchaPlugin({
-    provider: {
-      id: '2captcha',
-      token: process.env.TWOCAPTCHA_API_KEY!,
-    },
-    visualFeedback: true,
-  })
-);
-
-puppeteer.use(StealthPlugin());
-
-async function newPage(attempts = 1): Promise<Page> {
-  const maxAttempts = 5;
-
-  try {
-    if (!browser) {
-      browser = await puppeteer.launch(launchOptions);
-    }
-
-    return await browser.newPage();
-  } catch (err) {
-    console.log(
-      'Cannot create a page. Attempt %d. Error: %s',
-      attempts,
-      err instanceof Error ? err.message : JSON.stringify(err)
-    );
-
-    if (attempts >= maxAttempts) {
-      throw new Error('Cannot create a new page');
-    }
-
-    // refresh the browser
-    try {
-      await browser?.close();
-    } catch {
-      // ignore
-    }
-
-    browser = null;
-
-    return await newPage(attempts + 1);
-  }
-}
-
-const pool = createPool<Page>(
-  {
-    create: async () => {
-      assert(browser);
-
-      console.log('pool: create a page');
-
-      // check if the browser is alive by creating a dummy page
-      const dummy = await newPage();
-
-      await dummy.close();
-
-      const page = await newInjectedPage(browser);
-
-      page.evaluateOnNewDocument(turnstileScript);
-
-      return page;
-    },
-    destroy: async (page) => {
-      console.log('pool: close a page');
-
-      await page.close().catch((err) => {
-        console.log('Failed to close the page. Ignoring error:', err);
-      });
-    },
-  },
-  {
-    max: Number(opts.maxTabs),
-    idleTimeoutMillis: 10 * 60 * 1000, // bir tarayıcı sekmesi 10 dakika boyunca boşta durabilir.
-    evictionRunIntervalMillis: 10 * 60 * 1000, // 10 dakikada bir kullanılmayan sekmeleri kapatır
-  }
-);
 
 const app = express();
 const port = Number(process.env.PORT ?? '7000');
@@ -315,7 +175,7 @@ app.get('/scrape', async (req, res) => {
 
 async function main() {
   const host = process.env.HOST ?? '127.0.0.1';
-  browser = await puppeteer.launch(launchOptions);
+  await launchBrowser();
   console.log('Browser launched...');
 
   server = app.listen(port, host);
@@ -337,6 +197,8 @@ nodeCleanup(() => {
   }
 
   pool.clear().then(() => {
+    const browser = getBrowser();
+
     if (browser) {
       console.log('Closing browser...');
 
