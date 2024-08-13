@@ -5,6 +5,7 @@ export interface ScrapeParams {
   page: Page;
   url: string;
   infiniteScroll?: boolean;
+  waitForNetwork?: boolean;
 }
 
 interface TurnstileConfiguration {
@@ -131,7 +132,7 @@ async function scrollToBottom(page: Page) {
 }
 
 export async function scrape(
-  { page, url, infiniteScroll }: ScrapeParams,
+  { page, url, infiniteScroll, waitForNetwork }: ScrapeParams,
   attempts = 1
 ): Promise<HTTPResponse | null> {
   if (attempts > maxAttempts) {
@@ -156,11 +157,22 @@ export async function scrape(
 
     console.log('Try to scrape the same url again...');
 
-    return await scrape({ page, url, infiniteScroll }, attempts + 1);
+    return await scrape(
+      { page, url, infiniteScroll, waitForNetwork },
+      attempts + 1
+    );
   }
 
   if (infiniteScroll) {
     await scrollToBottom(page);
+  }
+
+  if (waitForNetwork) {
+    try {
+      await page.waitForNetworkIdle();
+    } catch {
+      // ignore
+    }
   }
 
   return resp;
