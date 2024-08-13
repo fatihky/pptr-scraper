@@ -6,6 +6,7 @@ import nodeCleanup from 'node-cleanup';
 import { Page } from 'puppeteer';
 import { getBrowser, launchBrowser, pool } from './pool';
 import { scrape } from './scrape';
+import { z } from 'zod';
 
 // /scrape API ucundan dönülecek yanıt
 interface ScrapeResult {
@@ -22,9 +23,20 @@ const port = Number(process.env.PORT ?? '7000');
 
 let server: Server | null = null;
 
+const scrapeQuerySchema = z.object({
+  url: z.string().url(),
+  infiniteScroll: z.coerce.boolean(),
+  screenshot: z.coerce.boolean(),
+});
+
 app.get('/scrape', async (req, res) => {
-  const { url } = req.query;
-  const infiniteScroll = 'infiniteScroll' in req.query;
+  const result = scrapeQuerySchema.safeParse(req.query);
+
+  if (result.error) {
+    return res.status(400).json(result.error);
+  }
+
+  const { url, infiniteScroll, screenshot } = result.data;
 
   console.log('Tara:', url);
 
@@ -63,7 +75,10 @@ app.get('/scrape', async (req, res) => {
     }
 
     const headers = resp.headers();
-    const contentType = headers['content-type'] ?? 'text/html';
+    const contents = screenshot ? await page.screenshot() : await resp.buffer();
+    const contentType = screenshot
+      ? 'image/png'
+      : headers['content-type'] ?? 'text/html';
 
     console.log('resp:', resp.status(), resp.statusText(), resp.headers());
 
@@ -72,7 +87,7 @@ app.get('/scrape', async (req, res) => {
       url: page.url(),
       durationMs: Date.now() - startTime,
       contentType: contentType.slice(0, contentType.indexOf(';')).trim(),
-      contentsBase64: (await resp.buffer()).toString('base64'),
+      contentsBase64: contents.toString('base64'),
       headers: resp.headers() ?? {},
     } satisfies ScrapeResult);
   } catch (err) {
