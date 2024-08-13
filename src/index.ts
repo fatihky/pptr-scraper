@@ -80,7 +80,9 @@ app.get('/scrape', async (req, res) => {
           'x-pptr-scraper-original-headers': JSON.stringify(resp.headers()),
         }
       : resp.headers();
-    const contents = screenshot ? await page.screenshot() : await resp.buffer();
+    const contents = screenshot
+      ? await page.screenshot({ fullPage: true })
+      : await resp.buffer();
     const contentType = screenshot
       ? 'image/png'
       : headers['content-type'] ?? 'text/html';
