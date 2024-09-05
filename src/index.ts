@@ -28,7 +28,7 @@ const scrapeQuerySchema = z.object({
   infiniteScroll: z.coerce.boolean(),
   screenshot: z.coerce.boolean(),
   waitForNetwork: z.coerce.boolean(),
-  maxScrolls: z.coerce.number().int().min(1),
+  maxScrolls: z.coerce.number().int().min(1).optional(),
 });
 
 app.get('/scrape', async (req, res) => {
