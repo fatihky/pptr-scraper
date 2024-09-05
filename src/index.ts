@@ -48,6 +48,7 @@ app.get('/scrape', async (req, res) => {
   }
 
   let page: Page | null = null;
+  let errored = false;
 
   try {
     const acquireStart = Date.now();
@@ -100,6 +101,8 @@ app.get('/scrape', async (req, res) => {
       headers,
     } satisfies ScrapeResult);
   } catch (err) {
+    errored = true;
+
     console.error(
       'Scrape işlemi hata ile sonuçlandı:',
       err,
@@ -113,7 +116,11 @@ app.get('/scrape', async (req, res) => {
     res.status(500).json({ error: (err as Error).message });
   } finally {
     if (page) {
-      await pool.release(page);
+      if (errored) {
+        await pool.destroy(page);
+      } else {
+        await pool.release(page);
+      }
     }
   }
 });
