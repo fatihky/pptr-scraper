@@ -88,20 +88,20 @@ app.get('/scrape', async (req, res) => {
     const headers = screenshot
       ? {
           'content-type': 'image/png',
-          'x-pptr-scraper-original-headers': JSON.stringify(resp.headers()),
+          'x-pptr-scraper-original-headers': JSON.stringify(resp.headers),
         }
-      : resp.headers();
+      : resp.headers;
     const contents = screenshot
       ? await page.screenshot({ fullPage: true })
-      : await resp.buffer();
+      : resp.body;
     const contentType = screenshot
       ? 'image/png'
       : headers['content-type'] ?? 'text/html';
 
-    console.log('resp:', resp.status(), resp.statusText(), resp.headers());
+    console.log('resp:', resp.status, resp.statusText, resp.headers);
 
     res.json({
-      status: resp.status(),
+      status: resp.status,
       url: page.url(),
       durationMs: Date.now() - startTime,
       contentType: contentType.slice(0, contentType.indexOf(';')).trim(),

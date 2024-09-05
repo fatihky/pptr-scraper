@@ -9,6 +9,13 @@ export interface ScrapeParams {
   maxScrolls?: number;
 }
 
+export interface ScrapeResult {
+  body: Buffer;
+  headers: Record<string, string>;
+  status: number;
+  statusText: string;
+}
+
 interface TurnstileConfiguration {
   method: 'turnstile';
   key: string;
@@ -135,7 +142,7 @@ async function scrollToBottom(page: Page, opts?: { maxScrolls?: number }) {
 export async function scrape(
   { maxScrolls, page, url, infiniteScroll, waitForNetwork }: ScrapeParams,
   attempts = 1
-): Promise<HTTPResponse | null> {
+): Promise<ScrapeResult | null> {
   if (attempts > maxAttempts) {
     throw new MaxScrapeAttemptsExceededError(url);
   }
@@ -177,5 +184,13 @@ export async function scrape(
     }
   }
 
-  return resp;
+  return {
+    // ekran kaydırılmışsa html içeriğini döndür
+    body: infiniteScroll
+      ? Buffer.from(await page.content())
+      : await resp.buffer(),
+    headers: resp.headers(),
+    status: resp.status(),
+    statusText: resp.statusText(),
+  };
 }
