@@ -28,6 +28,7 @@ const scrapeQuerySchema = z.object({
   infiniteScroll: z.coerce.boolean(),
   screenshot: z.coerce.boolean(),
   waitForNetwork: z.coerce.boolean(),
+  maxScrolls: z.coerce.number().int().min(1),
 });
 
 app.get('/scrape', async (req, res) => {
@@ -37,9 +38,15 @@ app.get('/scrape', async (req, res) => {
     return res.status(400).json(result.error);
   }
 
-  const { url, infiniteScroll, screenshot, waitForNetwork } = result.data;
+  const { url, infiniteScroll, maxScrolls, screenshot, waitForNetwork } =
+    result.data;
 
-  console.log('Tara:', url, { infiniteScroll, screenshot, waitForNetwork });
+  console.log('Tara:', url, {
+    infiniteScroll,
+    maxScrolls,
+    screenshot,
+    waitForNetwork,
+  });
 
   if (typeof url !== 'string') {
     return res
@@ -68,6 +75,7 @@ app.get('/scrape', async (req, res) => {
       page,
       url,
       infiniteScroll,
+      maxScrolls,
       waitForNetwork,
     });
 

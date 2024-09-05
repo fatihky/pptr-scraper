@@ -6,6 +6,7 @@ export interface ScrapeParams {
   url: string;
   infiniteScroll?: boolean;
   waitForNetwork?: boolean;
+  maxScrolls?: number;
 }
 
 interface TurnstileConfiguration {
@@ -59,8 +60,8 @@ class MaxScrapeAttemptsExceededError extends Error {
   }
 }
 
-async function scrollToBottom(page: Page) {
-  const maxScrolls = 20;
+async function scrollToBottom(page: Page, opts?: { maxScrolls?: number }) {
+  const maxScrolls = opts?.maxScrolls ?? 20;
   let scrolls = 0;
   const scrollDelayMs = 800;
   let previousHeight: number = 0;
@@ -132,7 +133,7 @@ async function scrollToBottom(page: Page) {
 }
 
 export async function scrape(
-  { page, url, infiniteScroll, waitForNetwork }: ScrapeParams,
+  { maxScrolls, page, url, infiniteScroll, waitForNetwork }: ScrapeParams,
   attempts = 1
 ): Promise<HTTPResponse | null> {
   if (attempts > maxAttempts) {
@@ -164,7 +165,7 @@ export async function scrape(
   }
 
   if (infiniteScroll) {
-    await scrollToBottom(page);
+    await scrollToBottom(page, { maxScrolls });
   }
 
   if (waitForNetwork) {
