@@ -115,7 +115,7 @@ async function scrollToBottom(page: Page, opts?: { maxScrolls?: number }) {
       (waitNewItemsUntil, previousHeight) =>
         Date.now() >= waitNewItemsUntil ||
         document.body.scrollHeight > previousHeight,
-      { timeout: 60000 },
+      { timeout: 60000, polling: 100 },
       waitNewItemsUntil,
       previousHeight
     );
