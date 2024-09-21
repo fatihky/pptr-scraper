@@ -7,16 +7,7 @@ import { Page } from 'puppeteer';
 import { getBrowser, launchBrowser, pool } from './pool';
 import { scrape } from './scrape';
 import { z } from 'zod';
-
-// /scrape API ucundan dönülecek yanıt
-interface ScrapeResult {
-  status: number;
-  url: string;
-  durationMs: number;
-  contentType: string;
-  contentsBase64: string;
-  headers: Record<string, string>;
-}
+import { gzipSync } from 'zlib';
 
 const app = express();
 const port = Number(process.env.PORT ?? '7000');
@@ -58,14 +49,7 @@ app.get('/scrape', async (req, res) => {
   let errored = false;
 
   try {
-    const acquireStart = Date.now();
-
     page = await pool.acquire();
-
-    res.set(
-      'X-Puppeteer-Page-Pool-Acquire-Time-Ms',
-      String(Date.now() - acquireStart)
-    );
 
     const startTime = Date.now();
 
@@ -88,7 +72,7 @@ app.get('/scrape', async (req, res) => {
     const headers = screenshot
       ? {
           'content-type': 'image/png',
-          'x-pptr-scraper-original-headers': JSON.stringify(resp.headers),
+          'pptr-scraper-original-headers': JSON.stringify(resp.headers),
         }
       : resp.headers;
     const contents = screenshot
@@ -98,16 +82,30 @@ app.get('/scrape', async (req, res) => {
       ? 'image/png'
       : headers['content-type'] ?? 'text/html';
 
-    console.log('resp:', resp.status, resp.statusText, resp.headers);
+    const encoding: 'none' | 'gzip' =
+      resp.headers['content-encoding'] === 'gzip' ? 'gzip' : 'none';
 
-    res.json({
-      status: resp.status,
-      url: page.url(),
-      durationMs: Date.now() - startTime,
-      contentType: contentType.slice(0, contentType.indexOf(';')).trim(),
-      contentsBase64: contents.toString('base64'),
-      headers,
-    } satisfies ScrapeResult);
+    console.log(
+      'resp:',
+      resp.status,
+      resp.statusText,
+      { contentType },
+      resp.headers
+    );
+
+    res
+      .set('pptr-scraper-duration', String(Date.now() - startTime))
+      .set('pptr-scraper-url', url)
+      .set('pptr-scraper-resolved-url', page.url())
+      .set(headers);
+
+    if (screenshot) {
+      res.type('image/png');
+    }
+
+    res
+      .status(resp.status)
+      .send(encoding === 'none' ? contents : gzipSync(contents));
   } catch (err) {
     errored = true;
 
