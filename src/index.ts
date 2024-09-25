@@ -93,11 +93,17 @@ app.get('/scrape', async (req, res) => {
       resp.headers
     );
 
+    const mappedHeaders = Object.keys(resp.headers).reduce((acc, key) => {
+      acc[key] = resp.headers[key].replace(/\r?\n|\r/g, '');
+
+      return acc;
+    }, {} as Record<string, string>);
+
     res
       .set('pptr-scraper-duration', String(Date.now() - startTime))
       .set('pptr-scraper-url', url)
       .set('pptr-scraper-resolved-url', page.url())
-      .set(headers);
+      .set(mappedHeaders);
 
     if (screenshot) {
       res.type('image/png');
