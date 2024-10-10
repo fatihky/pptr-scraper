@@ -101,7 +101,7 @@ app.get('/scrape', async (req, res) => {
 
     res
       .set('pptr-scraper-duration', String(Date.now() - startTime))
-      .set('pptr-scraper-url', url)
+      .set('pptr-scraper-url', encodeURI(url))
       .set('pptr-scraper-resolved-url', page.url())
       .set(mappedHeaders);
 
