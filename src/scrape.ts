@@ -149,7 +149,7 @@ export async function scrape(
 
   let resp = await page.goto(url, {
     timeout: 180000,
-    waitUntil: 'networkidle0',
+    waitUntil: waitForNetwork ? 'networkidle0' : undefined,
   });
 
   if (resp === null) {
