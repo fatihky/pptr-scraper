@@ -79,6 +79,9 @@ export const pool = createPool<Page>(
 
       const page = await newInjectedPage(browser);
 
+      // github.com/trending sayfası 304 dönüyor bize
+      page.setCacheEnabled(false);
+
       page.evaluateOnNewDocument(turnstileScript);
 
       return page;
@@ -88,6 +91,14 @@ export const pool = createPool<Page>(
 
       await page.close().catch((err) => {
         console.log('Failed to close the page. Ignoring error:', err);
+
+        console.log('TARAYICIYI SIFIRLA...');
+
+        Promise.resolve(browser?.close())
+          .catch((err) =>
+            console.log('Tarayıcıyı kapatırken hata oluştu:', err)
+          )
+          .finally(launchBrowser);
       });
     },
   },
