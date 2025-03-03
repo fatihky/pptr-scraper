@@ -14,24 +14,29 @@
   "license": "UNLICENSED",
   "dependencies": {
     "2captcha": "3.0.5-2",
-    "commander": "^12.1.0",
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "fingerprint-injector": "^2.1.54",
+    "commander": "^13.1.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "fingerprint-injector": "^2.1.62",
     "generic-pool": "^3.9.0",
     "node-cleanup": "^2.1.2",
-    "puppeteer": "^22.15.0",
+    "puppeteer": "^24.3.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-recaptcha": "^3.6.8",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "zod": "^3.23.8"
+    "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@types/express": "^4.17.21",
-    "@types/node": "^22.2.0",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.8",
     "@types/node-cleanup": "^2.1.5",
     "ts-node": "^10.9.2",
-    "typescript": "^5.5.4"
+    "typescript": "^5.8.2"
   },
-  "packageManager": "pnpm@9.0.6+sha1.648f6014eb363abb36618f2ba59282a9eeb3e879"
+  "packageManager": "pnpm@10.5.2",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "puppeteer"
+    ]
+  }
 }
