@@ -10,7 +10,7 @@ export interface ScrapeParams {
 }
 
 export interface ScrapeResult {
-  body: Buffer;
+  body: Buffer | null;
   headers: Record<string, string>;
   status: number;
   statusText: string;

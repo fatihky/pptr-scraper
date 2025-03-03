@@ -91,13 +91,17 @@ app.get(
           responseHeaders[key] = value;
         });
 
+        const buf = Buffer.from(await response.bytes());
+
         resp = {
           status: response.status,
           statusText: response.statusText,
           finalUrl: response.url,
           headers: responseHeaders,
-          body: Buffer.from(await response.bytes()),
+          body: buf.length > 0 ? buf : null,
         };
+
+        console.log('resp body:', resp.body);
       } else {
         page = await pool.acquire();
 
@@ -128,9 +132,9 @@ app.get(
         screenshot && page
           ? await page.screenshot({ fullPage: true })
           : resp.body;
-      const contentType = screenshot
+      const contentType: string | undefined = screenshot
         ? 'image/png'
-        : (headers['content-type'] ?? 'text/html');
+        : (headers['content-type'] ?? undefined);
 
       const contentEncodingHeader = resp.headers['content-encoding'];
       const encoding: 'none' | 'br' | 'gzip' =
@@ -164,9 +168,13 @@ app.get(
         res.type('image/png');
       }
 
-      res
-        .status(resp.status)
-        .send(encoding === 'gzip' ? gzipSync(contents) : contents);
+      res.status(resp.status);
+
+      if (contents) {
+        res.send(encoding === 'gzip' ? gzipSync(contents) : contents);
+      } else {
+        res.send(); // no content
+      }
     } catch (err) {
       errored = true;
 
