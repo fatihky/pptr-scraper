@@ -57,6 +57,7 @@ app.get(
     console.log('Tara:', url, {
       infiniteScroll,
       maxScrolls,
+      noBrowser,
       screenshot,
       waitForNetwork,
     });
@@ -97,9 +98,6 @@ app.get(
           headers: responseHeaders,
           body: Buffer.from(await response.bytes()),
         };
-
-        console.log('response:', response);
-        console.log('resp:', resp.body.length);
       } else {
         page = await pool.acquire();
 
