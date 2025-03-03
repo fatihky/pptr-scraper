@@ -1,3 +1,9 @@
 import { Solver } from '2captcha';
 
-export const captchaSolver = new Solver(process.env.TWOCAPTCHA_API_KEY!);
+const twoCaptchaApiKey = process.env.TWOCAPTCHA_API_KEY;
+
+if (!twoCaptchaApiKey) {
+  throw new Error('TWOCAPTCHA_API_KEY ortam değişkeni zorunludur');
+}
+
+export const captchaSolver = new Solver(twoCaptchaApiKey);

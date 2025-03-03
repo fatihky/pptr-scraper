@@ -7,7 +7,9 @@
     "start": "node dist/index.js",
     "dev": "nodemon -i userData src/index.ts",
     "build": "rm -rf dist && tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "format": "biome format --write",
+    "lint": "biome lint --write"
   },
   "keywords": [],
   "author": "",
@@ -17,6 +19,7 @@
     "commander": "^13.1.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "express-async-handler": "^1.2.0",
     "fingerprint-injector": "^2.1.62",
     "generic-pool": "^3.9.0",
     "node-cleanup": "^2.1.2",
@@ -27,6 +30,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
     "@types/express": "^5.0.0",
     "@types/node": "^22.13.8",
     "@types/node-cleanup": "^2.1.5",
@@ -35,8 +39,6 @@
   },
   "packageManager": "pnpm@10.5.2",
   "pnpm": {
-    "onlyBuiltDependencies": [
-      "puppeteer"
-    ]
+    "onlyBuiltDependencies": ["puppeteer"]
   }
 }

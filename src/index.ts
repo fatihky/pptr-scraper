@@ -1,13 +1,14 @@
 import 'dotenv/config';
 
 import express from 'express';
-import { Server } from 'http';
 import nodeCleanup from 'node-cleanup';
-import { Page } from 'puppeteer';
-import { getBrowser, launchBrowser, pool } from './pool';
-import { scrape } from './scrape';
+import type { Server } from 'node:http';
+import { gzipSync } from 'node:zlib';
+import type { Page } from 'puppeteer';
 import { z } from 'zod';
-import { gzipSync } from 'zlib';
+import { getBrowser, launchBrowser, pool } from './pool';
+import { type ScrapeResult, scrape } from './scrape';
+import expressAsyncHandler from 'express-async-handler';
 
 const app = express();
 const port = Number(process.env.PORT ?? '7000');
@@ -20,122 +21,179 @@ const scrapeQuerySchema = z.object({
   screenshot: z.coerce.boolean(),
   waitForNetwork: z.coerce.boolean(),
   maxScrolls: z.coerce.number().int().min(1).optional(),
+  noBrowser: z.coerce.boolean().default(false),
 });
 
-app.get('/scrape', async (req, res) => {
-  const result = scrapeQuerySchema.safeParse(req.query);
+function cleanHeaders(headers: Record<string, string>): Record<string, string> {
+  return Object.keys(headers).reduce(
+    (acc, key) => {
+      acc[key] = headers[key].replace(/\r?\n|\r/g, '');
 
-  if (result.error) {
-    return res.status(400).json(result.error);
-  }
+      return acc;
+    },
+    {} as Record<string, string>,
+  );
+}
 
-  const { url, infiniteScroll, maxScrolls, screenshot, waitForNetwork } =
-    result.data;
+app.get(
+  '/scrape',
+  expressAsyncHandler(async (req, res): Promise<void> => {
+    const result = scrapeQuerySchema.safeParse(req.query);
 
-  console.log('Tara:', url, {
-    infiniteScroll,
-    maxScrolls,
-    screenshot,
-    waitForNetwork,
-  });
-
-  if (typeof url !== 'string') {
-    return res
-      .status(400)
-      .json({ error: 'url parametresi zorunludur ve tek url verilmelidir.' });
-  }
-
-  let page: Page | null = null;
-  let errored = false;
-
-  try {
-    page = await pool.acquire();
-
-    const startTime = Date.now();
-
-    await page.reload();
-
-    const resp = await scrape({
-      page,
-      url,
-      infiniteScroll,
-      maxScrolls,
-      waitForNetwork,
-    });
-
-    if (!resp) {
-      res.json(500).json({ error: 'page.goto did not return any response' });
-
+    if (result.error) {
+      res.status(400).json(result.error);
       return;
     }
 
-    const headers = screenshot
-      ? {
-          'content-type': 'image/png',
-          'pptr-scraper-original-headers': JSON.stringify(resp.headers),
-        }
-      : resp.headers;
-    const contents = screenshot
-      ? await page.screenshot({ fullPage: true })
-      : resp.body;
-    const contentType = screenshot
-      ? 'image/png'
-      : headers['content-type'] ?? 'text/html';
+    const {
+      url,
+      infiniteScroll,
+      maxScrolls,
+      noBrowser,
+      screenshot,
+      waitForNetwork,
+    } = result.data;
 
-    const encoding: 'none' | 'gzip' =
-      resp.headers['content-encoding'] === 'gzip' ? 'gzip' : 'none';
-
-    console.log(
-      'resp:',
-      resp.status,
-      resp.statusText,
-      { contentType },
-      resp.headers
-    );
-
-    const mappedHeaders = Object.keys(resp.headers).reduce((acc, key) => {
-      acc[key] = resp.headers[key].replace(/\r?\n|\r/g, '');
-
-      return acc;
-    }, {} as Record<string, string>);
-
-    res
-      .set('pptr-scraper-duration', String(Date.now() - startTime))
-      .set('pptr-scraper-url', encodeURI(url))
-      .set('pptr-scraper-resolved-url', page.url())
-      .set(mappedHeaders);
-
-    if (screenshot) {
-      res.type('image/png');
-    }
-
-    res
-      .status(resp.status)
-      .send(encoding === 'none' ? contents : gzipSync(contents));
-  } catch (err) {
-    errored = true;
-
-    console.error(
-      'Scrape işlemi hata ile sonuçlandı:',
-      err,
-      err instanceof Error ? err.constructor : null
-    );
-
-    await page?.screenshot({
-      path: `${Date.now()}-${new URL(url).host}-failed.screenshot.png`,
+    console.log('Tara:', url, {
+      infiniteScroll,
+      maxScrolls,
+      screenshot,
+      waitForNetwork,
     });
 
-    res.status(500).json({ error: (err as Error).message });
-  } finally {
-    if (page) {
-      if (errored) {
-        await pool.destroy(page);
+    if (typeof url !== 'string') {
+      res
+        .status(400)
+        .json({ error: 'url parametresi zorunludur ve tek url verilmelidir.' });
+      return;
+    }
+
+    if (noBrowser && screenshot) {
+      res
+        .status(400)
+        .json({ error: 'noBrowser ile screenshot birlikte kullanılamaz.' });
+      return;
+    }
+
+    let page: Page | null = null;
+    let errored = false;
+    let resp: ScrapeResult | null = null;
+
+    try {
+      const startTime = Date.now();
+
+      if (noBrowser) {
+        const response = await fetch(url);
+        const responseHeaders: Record<string, string> = {};
+
+        response.headers.forEach((value, key) => {
+          responseHeaders[key] = value;
+        });
+
+        resp = {
+          status: response.status,
+          statusText: response.statusText,
+          finalUrl: response.url,
+          headers: responseHeaders,
+          body: Buffer.from(await response.bytes()),
+        };
+
+        console.log('response:', response);
+        console.log('resp:', resp.body.length);
       } else {
-        await pool.release(page);
+        page = await pool.acquire();
+
+        await page.reload();
+
+        resp = await scrape({
+          page,
+          url,
+          infiniteScroll,
+          maxScrolls,
+          waitForNetwork,
+        });
+      }
+
+      if (!resp) {
+        res.json(500).json({ error: 'page.goto did not return any response' });
+
+        return;
+      }
+
+      const headers = screenshot
+        ? {
+            'content-type': 'image/png',
+            'pptr-scraper-original-headers': JSON.stringify(resp.headers),
+          }
+        : resp.headers;
+      const contents =
+        screenshot && page
+          ? await page.screenshot({ fullPage: true })
+          : resp.body;
+      const contentType = screenshot
+        ? 'image/png'
+        : (headers['content-type'] ?? 'text/html');
+
+      const contentEncodingHeader = resp.headers['content-encoding'];
+      const encoding: 'none' | 'br' | 'gzip' =
+        contentEncodingHeader === 'br'
+          ? 'none' // bize br geldiyse encode etmeden döneceğiz
+          : contentEncodingHeader === 'gzip'
+            ? 'gzip'
+            : 'none';
+
+      console.log(
+        'resp:',
+        resp.status,
+        resp.statusText,
+        { contentType, encoding },
+        resp.headers,
+      );
+
+      const mappedHeaders = cleanHeaders(resp.headers);
+
+      if (encoding !== 'gzip' && mappedHeaders['content-encoding']) {
+        mappedHeaders['content-encoding'] = 'none';
+      }
+
+      res
+        .set('pptr-scraper-duration', String(Date.now() - startTime))
+        .set('pptr-scraper-url', encodeURI(url))
+        .set('pptr-scraper-resolved-url', resp.finalUrl)
+        .set(mappedHeaders);
+
+      if (screenshot) {
+        res.type('image/png');
+      }
+
+      res
+        .status(resp.status)
+        .send(encoding === 'gzip' ? gzipSync(contents) : contents);
+    } catch (err) {
+      errored = true;
+
+      console.error(
+        'Scrape işlemi hata ile sonuçlandı:',
+        err,
+        err instanceof Error ? err.constructor : null,
+      );
+
+      await page?.screenshot({
+        path: `${Date.now()}-${new URL(url).host}-failed.screenshot.png`,
+      });
+
+      res.status(500).json({ error: (err as Error).message });
+    } finally {
+      if (page) {
+        if (errored) {
+          await pool.destroy(page);
+        } else {
+          await pool.release(page);
+        }
       }
     }
-  }
-});
+  }),
+);
 
 async function main() {
   const host = process.env.HOST ?? '127.0.0.1';

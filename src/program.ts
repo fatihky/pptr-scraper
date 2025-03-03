@@ -1,5 +1,5 @@
 import { program } from 'commander';
-import { PuppeteerLaunchOptions } from 'puppeteer';
+import type { LaunchOptions } from 'puppeteer';
 
 // --no-headless dersek { headless: false } geliyor
 // böylece tarayıcı görünür oluyor.
@@ -15,12 +15,12 @@ const opts = program.opts<{
   proxy: string | undefined;
 }>();
 
-const puppeteerLaunchOptions: PuppeteerLaunchOptions = {
+const puppeteerLaunchOptions: LaunchOptions = {
   headless: opts.headless,
   timeout: 180000,
   userDataDir: './userData',
   args: ['--no-sandbox'].concat(
-    opts.proxy ? `--proxy-server=${opts.proxy}` : []
+    opts.proxy ? `--proxy-server=${opts.proxy}` : [],
   ),
 };
 

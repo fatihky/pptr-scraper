@@ -1,7 +1,7 @@
-import assert from 'assert';
 import { newInjectedPage } from 'fingerprint-injector';
 import { createPool } from 'generic-pool';
-import { Browser, Page } from 'puppeteer';
+import assert from 'node:assert';
+import type { Browser, Page } from 'puppeteer';
 import program from './program';
 import { puppeteer } from './puppeteer';
 
@@ -45,7 +45,7 @@ async function newPage(attempts = 1): Promise<Page> {
     console.log(
       'Cannot create a page. Attempt %d. Error: %s',
       attempts,
-      err instanceof Error ? err.message : JSON.stringify(err)
+      err instanceof Error ? err.message : JSON.stringify(err),
     );
 
     if (attempts >= maxAttempts) {
@@ -96,7 +96,7 @@ export const pool = createPool<Page>(
 
         Promise.resolve(browser?.close())
           .catch((err) =>
-            console.log('Tarayıcıyı kapatırken hata oluştu:', err)
+            console.log('Tarayıcıyı kapatırken hata oluştu:', err),
           )
           .finally(launchBrowser);
       });
@@ -106,7 +106,7 @@ export const pool = createPool<Page>(
     max: Number(program.opts.maxTabs),
     idleTimeoutMillis: 10 * 60 * 1000, // bir tarayıcı sekmesi 10 dakika boyunca boşta durabilir.
     evictionRunIntervalMillis: 10 * 60 * 1000, // 10 dakikada bir kullanılmayan sekmeleri kapatır
-  }
+  },
 );
 
 export async function launchBrowser() {
