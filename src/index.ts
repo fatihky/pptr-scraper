@@ -180,6 +180,7 @@ app.get(
 
       console.error(
         'Scrape işlemi hata ile sonuçlandı:',
+        url,
         err,
         err instanceof Error ? err.constructor : null,
       );
