@@ -187,11 +187,25 @@ export async function scrape(
     }
   }
 
+  let body: Buffer<ArrayBufferLike> | null = null;
+
+  try {
+    body = infiniteScroll
+      ? Buffer.from(await page.content())
+      : await resp.buffer();
+  } catch (err) {
+    if (infiniteScroll) {
+      throw err;
+    }
+
+    // bazı sayfalar not found dönüyor ama body boş geliyor.
+    // bu durumda resp.buffer() hata veriyor. o yüzden infiniteScroll
+    // durumu dışında body dönmüyoruz
+  }
+
   return {
     // ekran kaydırılmışsa html içeriğini döndür
-    body: infiniteScroll
-      ? Buffer.from(await page.content())
-      : await resp.buffer(),
+    body,
     headers: resp.headers(),
     status: resp.status(),
     statusText: resp.statusText(),
