@@ -39,6 +39,9 @@
   },
   "packageManager": "pnpm@10.10.0",
   "pnpm": {
-    "onlyBuiltDependencies": ["puppeteer"]
+    "onlyBuiltDependencies": [
+      "@biomejs/biome",
+      "puppeteer"
+    ]
   }
 }
