@@ -23,16 +23,16 @@
     "fingerprint-injector": "^2.1.66",
     "generic-pool": "^3.9.0",
     "node-cleanup": "^2.1.2",
-    "puppeteer": "^24.7.2",
+    "puppeteer": "^24.8.2",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-recaptcha": "^3.6.8",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "zod": "^3.24.3"
+    "zod": "^3.24.4"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@types/express": "^5.0.1",
-    "@types/node": "^22.15.3",
+    "@types/node": "^22.15.18",
     "@types/node-cleanup": "^2.1.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
