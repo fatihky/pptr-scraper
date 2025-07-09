@@ -38,6 +38,8 @@ function cleanHeaders(headers: Record<string, string>): Record<string, string> {
 app.get(
   '/scrape',
   expressAsyncHandler(async (req, res): Promise<void> => {
+    console.log('scrape:', req.query);
+
     const result = scrapeQuerySchema.safeParse(req.query);
 
     if (result.error) {
