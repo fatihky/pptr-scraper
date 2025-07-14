@@ -7,16 +7,16 @@ pm2 ile şöyle çalıştırmak mümkün bu aracı:
 
 This repository includes automated AI code review capabilities using both Gemini and Claude AI models.
 
-### Gemini AI Code Reviewer
+### Gemini Code Assist for GitHub (Official)
 
 **Setup:**
-1. Get a Gemini API key from [Google AI Studio](https://ai.google.dev/)
-2. Add the API key as a GitHub secret named `GEMINI_API_KEY` in your repository settings
-3. The workflow file `.github/workflows/gemini-code-review.yml` is already configured
+1. Install the [Gemini Code Assist GitHub App](https://github.com/apps/gemini-code-assist) to your repository
+2. No additional configuration or secrets required - works automatically once installed
 
 **Usage:**
-- Comment `/gemini-review` on any pull request to trigger the Gemini AI code review
-- The review will analyze the code changes and provide suggestions as PR comments
+- The official Gemini Code Assist automatically reviews pull requests
+- Provides intelligent code suggestions and analysis directly in PR comments
+- No manual trigger commands needed
 
 ### Claude AI Code Reviewer
 
@@ -31,4 +31,4 @@ This repository includes automated AI code review capabilities using both Gemini
 - Comment `/claude-review` on any pull request to trigger the Claude AI code review
 - The review will analyze the code changes and provide suggestions as PR comments
 
-**Note:** Both AI reviewers exclude documentation files (*.md, *.txt), configuration files (*.yml, *.yaml), and package-lock.json from review by default.
+**Note:** The Claude AI reviewer excludes documentation files (*.md, *.txt), configuration files (*.yml, *.yaml), and package-lock.json from review by default. The official Gemini Code Assist handles file filtering automatically based on relevance.
