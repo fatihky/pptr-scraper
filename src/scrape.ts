@@ -1,5 +1,6 @@
 import type { HTTPResponse, Page } from 'puppeteer';
 import { captchaSolver } from './captchaSolver';
+import { wireGuardManager, type WireGuardConfig } from './wireguard';
 
 export interface ScrapeParams {
   page: Page;
@@ -7,6 +8,7 @@ export interface ScrapeParams {
   infiniteScroll?: boolean;
   waitForNetwork?: boolean;
   maxScrolls?: number;
+  vpnLocation?: string;
 }
 
 export interface ScrapeResult {
@@ -15,6 +17,7 @@ export interface ScrapeResult {
   status: number;
   statusText: string;
   finalUrl: string;
+  vpnUsed?: WireGuardConfig;
 }
 
 interface TurnstileConfiguration {
@@ -35,6 +38,30 @@ function isCloudflareMitigateResponse(resp: HTTPResponse): boolean {
   return (
     resp.status() === 403 && resp.headers()['cf-mitigated'] === 'challenge'
   );
+}
+
+function isRateLimitedResponse(resp: HTTPResponse): boolean {
+  return resp.status() === 429;
+}
+
+function hasCaptchaChallenge(resp: HTTPResponse): boolean {
+  // Check common captcha indicators
+  const headers = resp.headers();
+  const contentType = headers['content-type'] || '';
+  
+  // Check for CloudFlare challenge
+  if (headers['cf-mitigated'] === 'challenge') {
+    return true;
+  }
+  
+  // Check for common captcha services in response
+  if (contentType.includes('text/html')) {
+    // This would need to be checked in the page content
+    // For now, we'll rely on the CF mitigation header
+    return false;
+  }
+  
+  return false;
 }
 
 async function solveCloudflareTurnstile(page: Page) {
@@ -143,7 +170,7 @@ async function scrollToBottom(page: Page, opts?: { maxScrolls?: number }) {
 }
 
 export async function scrape(
-  { maxScrolls, page, url, infiniteScroll, waitForNetwork }: ScrapeParams,
+  { maxScrolls, page, url, infiniteScroll, waitForNetwork, vpnLocation }: ScrapeParams,
   attempts = 1,
 ): Promise<ScrapeResult | null> {
   if (attempts > maxAttempts) {
@@ -159,6 +186,41 @@ export async function scrape(
     return null;
   }
 
+  let vpnUsed: WireGuardConfig | null = null;
+
+  // Handle rate limiting (429) or captcha challenges by using VPN
+  if (isRateLimitedResponse(resp) || hasCaptchaChallenge(resp)) {
+    console.log(
+      `Rate limited (${resp.status()}) or captcha challenge detected. Attempting VPN connection...`
+    );
+
+    // Try to connect to VPN
+    vpnUsed = await wireGuardManager.connectToBestVPN(vpnLocation);
+    
+    if (vpnUsed) {
+      console.log(`Connected to VPN: ${vpnUsed.name}. Retrying scrape...`);
+      
+      // Wait a bit before retrying
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Retry the scrape with VPN
+      const result = await scrape(
+        { page, url, infiniteScroll, waitForNetwork, vpnLocation },
+        attempts + 1,
+      );
+      
+      // Add VPN info to result
+      if (result) {
+        result.vpnUsed = vpnUsed;
+      }
+      
+      return result;
+    }
+    
+    console.log('Failed to connect to VPN. Continuing without VPN...');
+  }
+
+  // Handle Cloudflare mitigation
   if (isCloudflareMitigateResponse(resp)) {
     console.log(
       'Cloudflare mitigated our browsing. Try to automatically pass.',
@@ -168,10 +230,17 @@ export async function scrape(
 
     console.log('Try to scrape the same url again...');
 
-    return await scrape(
-      { page, url, infiniteScroll, waitForNetwork },
+    const result = await scrape(
+      { page, url, infiniteScroll, waitForNetwork, vpnLocation },
       attempts + 1,
     );
+    
+    // Preserve VPN info
+    if (result && vpnUsed) {
+      result.vpnUsed = vpnUsed;
+    }
+    
+    return result;
   }
 
   if (infiniteScroll) {
@@ -203,7 +272,7 @@ export async function scrape(
     // durumu dışında body dönmüyoruz
   }
 
-  return {
+  const result: ScrapeResult = {
     // ekran kaydırılmışsa html içeriğini döndür
     body,
     headers: resp.headers(),
@@ -211,4 +280,11 @@ export async function scrape(
     statusText: resp.statusText(),
     finalUrl: page.url(),
   };
+
+  // Add VPN info if used
+  if (vpnUsed) {
+    result.vpnUsed = vpnUsed;
+  }
+
+  return result;
 }

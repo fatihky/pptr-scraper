@@ -8,10 +8,15 @@ import type { Page } from 'puppeteer';
 import { z } from 'zod';
 import { getBrowser, launchBrowser, pool } from './pool';
 import { type ScrapeResult, scrape } from './scrape';
+import { wireGuardManager } from './wireguard';
 import expressAsyncHandler from 'express-async-handler';
 
 const app = express();
 const port = Number(process.env.PORT ?? '7000');
+
+// Enable JSON body parsing for POST requests
+app.use(express.json());
+app.use(express.text({ type: 'text/plain' }));
 
 let server: Server | null = null;
 
@@ -22,6 +27,7 @@ const scrapeQuerySchema = z.object({
   waitForNetwork: z.coerce.boolean(),
   maxScrolls: z.coerce.number().int().min(1).optional(),
   noBrowser: z.coerce.boolean().default(false),
+  vpnLocation: z.string().optional(),
 });
 
 function cleanHeaders(headers: Record<string, string>): Record<string, string> {
@@ -52,6 +58,7 @@ app.get(
       noBrowser,
       screenshot,
       waitForNetwork,
+      vpnLocation,
     } = result.data;
 
     console.log('Tara:', url, {
@@ -60,6 +67,7 @@ app.get(
       noBrowser,
       screenshot,
       waitForNetwork,
+      vpnLocation,
     });
 
     if (typeof url !== 'string') {
@@ -113,6 +121,7 @@ app.get(
           infiniteScroll,
           maxScrolls,
           waitForNetwork,
+          vpnLocation,
         });
       }
 
@@ -162,7 +171,15 @@ app.get(
         .set('pptr-scraper-duration', String(Date.now() - startTime))
         .set('pptr-scraper-url', encodeURI(url))
         .set('pptr-scraper-resolved-url', resp.finalUrl)
+        .set('pptr-scraper-vpn-used', resp.vpnUsed ? 'true' : 'false')
         .set(mappedHeaders);
+
+      // Add VPN info to headers if used
+      if (resp.vpnUsed) {
+        res.set('pptr-scraper-vpn-name', resp.vpnUsed.name);
+        res.set('pptr-scraper-vpn-location', resp.vpnUsed.location);
+        res.set('pptr-scraper-vpn-endpoint', resp.vpnUsed.endpoint);
+      }
 
       if (screenshot) {
         res.type('image/png');
@@ -202,6 +219,218 @@ app.get(
   }),
 );
 
+// WireGuard VPN Management Endpoints
+
+// Get all available WireGuard servers
+app.get('/vpn/servers', (req, res) => {
+  const servers = wireGuardManager.getAllConfigs();
+  res.json(servers);
+});
+
+// Get health status of all WireGuard servers
+app.get('/vpn/health', (req, res) => {
+  const health = wireGuardManager.getHealthStatus();
+  res.json(health);
+});
+
+// Get currently active VPN configuration
+app.get('/vpn/active', (req, res) => {
+  const active = wireGuardManager.getActiveConfig();
+  res.json(active);
+});
+
+// Register a new WireGuard configuration
+app.post('/vpn/register', expressAsyncHandler(async (req, res) => {
+  try {
+    const { name, location, config } = req.body;
+    
+    if (!name || !location || !config) {
+      res.status(400).json({ 
+        error: 'name, location, and config are required fields' 
+      });
+      return;
+    }
+
+    const configId = wireGuardManager.addConfig({ name, location, config });
+    res.json({ 
+      success: true, 
+      configId,
+      message: `WireGuard configuration "${name}" registered successfully` 
+    });
+  } catch (error) {
+    res.status(400).json({ 
+      error: error instanceof Error ? error.message : 'Failed to register configuration' 
+    });
+  }
+}));
+
+// Register multiple WireGuard configurations
+app.post('/vpn/register/bulk', expressAsyncHandler(async (req, res) => {
+  try {
+    const { configs } = req.body;
+    
+    if (!Array.isArray(configs)) {
+      res.status(400).json({ 
+        error: 'configs must be an array of configuration objects' 
+      });
+      return;
+    }
+
+    const results = [];
+    const errors = [];
+
+    for (let i = 0; i < configs.length; i++) {
+      const config = configs[i];
+      const index = i;
+      
+      try {
+        const { name, location, config: configText } = config;
+        
+        if (!name || !location || !configText) {
+          errors.push({
+            index,
+            error: 'name, location, and config are required fields'
+          });
+          continue;
+        }
+
+        const configId = wireGuardManager.addConfig({ 
+          name, 
+          location, 
+          config: configText 
+        });
+        
+        results.push({ 
+          index,
+          success: true, 
+          configId,
+          name 
+        });
+      } catch (error) {
+        errors.push({
+          index,
+          error: error instanceof Error ? error.message : 'Failed to register configuration'
+        });
+      }
+    }
+
+    res.json({ 
+      results,
+      errors,
+      summary: {
+        total: configs.length,
+        successful: results.length,
+        failed: errors.length
+      }
+    });
+  } catch (error) {
+    res.status(400).json({ 
+      error: error instanceof Error ? error.message : 'Failed to process bulk registration' 
+    });
+  }
+}));
+
+// Register WireGuard configuration from file upload (plain text)
+app.post('/vpn/register/file', expressAsyncHandler(async (req, res) => {
+  try {
+    const { name, location } = req.query;
+    const config = req.body;
+    
+    if (!name || !location) {
+      res.status(400).json({ 
+        error: 'name and location query parameters are required' 
+      });
+      return;
+    }
+
+    if (typeof config !== 'string') {
+      res.status(400).json({ 
+        error: 'Request body must be plain text WireGuard configuration' 
+      });
+      return;
+    }
+
+    const configId = wireGuardManager.addConfig({ 
+      name: name as string, 
+      location: location as string, 
+      config 
+    });
+    
+    res.json({ 
+      success: true, 
+      configId,
+      message: `WireGuard configuration "${name}" registered successfully from file` 
+    });
+  } catch (error) {
+    res.status(400).json({ 
+      error: error instanceof Error ? error.message : 'Failed to register configuration from file' 
+    });
+  }
+}));
+
+// Manually connect to a specific VPN
+app.post('/vpn/connect/:configId', expressAsyncHandler(async (req, res) => {
+  try {
+    const { configId } = req.params;
+    const success = await wireGuardManager.connectToVPN(configId);
+    
+    if (success) {
+      const config = wireGuardManager.getActiveConfig();
+      res.json({ 
+        success: true, 
+        message: `Connected to VPN: ${config?.name}`,
+        activeConfig: config 
+      });
+    } else {
+      res.status(500).json({ 
+        error: 'Failed to connect to VPN' 
+      });
+    }
+  } catch (error) {
+    res.status(400).json({ 
+      error: error instanceof Error ? error.message : 'Failed to connect to VPN' 
+    });
+  }
+}));
+
+// Disconnect from VPN
+app.post('/vpn/disconnect', expressAsyncHandler(async (req, res) => {
+  try {
+    await wireGuardManager.disconnectVPN();
+    res.json({ 
+      success: true, 
+      message: 'Disconnected from VPN' 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      error: error instanceof Error ? error.message : 'Failed to disconnect from VPN' 
+    });
+  }
+}));
+
+// Remove a WireGuard configuration
+app.delete('/vpn/servers/:configId', expressAsyncHandler(async (req, res) => {
+  try {
+    const { configId } = req.params;
+    const success = wireGuardManager.removeConfig(configId);
+    
+    if (success) {
+      res.json({ 
+        success: true, 
+        message: 'WireGuard configuration removed successfully' 
+      });
+    } else {
+      res.status(404).json({ 
+        error: 'Configuration not found' 
+      });
+    }
+  } catch (error) {
+    res.status(500).json({ 
+      error: error instanceof Error ? error.message : 'Failed to remove configuration' 
+    });
+  }
+}));
+
 async function main() {
   const host = process.env.HOST ?? '127.0.0.1';
   await launchBrowser();
@@ -224,6 +453,9 @@ nodeCleanup(() => {
 
     server.close();
   }
+
+  // Clean up WireGuard manager
+  wireGuardManager.destroy();
 
   pool.clear().then(() => {
     const browser = getBrowser();
