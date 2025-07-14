@@ -79,6 +79,13 @@ app.get(
       return;
     }
 
+    if (disableJs && infiniteScroll) {
+      res
+        .status(400)
+        .json({ error: 'disableJs ile infiniteScroll birlikte kullanılamaz.' });
+      return;
+    }
+
     if (noBrowser && screenshot) {
       res
         .status(400)
