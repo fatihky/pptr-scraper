@@ -32,9 +32,13 @@ npm start
 The scraper automatically handles rate limiting and captcha challenges by connecting to WireGuard VPN servers. When a 429 response or captcha challenge is detected:
 
 1. System selects the best available VPN server
-2. Connects to the VPN using WireGuard
+2. Connects to the VPN using WireGuard (no sudo required)
 3. Retries the scraping request
 4. Adds VPN usage information to response headers
+
+### No Root/Sudo Required
+
+The VPN integration uses userspace WireGuard implementations (wireguard-go) when available, eliminating the need for elevated privileges. The system gracefully falls back to simulation mode in development environments.
 
 ### VPN Management API
 

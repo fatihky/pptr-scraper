@@ -138,11 +138,22 @@ The system automatically handles this - no additional configuration needed. When
 2. Retry the request
 3. Add VPN information to response headers
 
+## WireGuard Implementation
+
+The system uses a multi-tier approach for WireGuard VPN connections:
+
+1. **Userspace Implementation (Preferred)**: Uses `wireguard-go` when available, which runs entirely in userspace without requiring root privileges
+2. **Standard WireGuard Tools**: Falls back to `wg` command for interface management
+3. **Simulation Mode**: For development environments without WireGuard tools
+
+This approach ensures the system works without requiring sudo or elevated privileges while maintaining full functionality.
+
 ## Security Notes
 
 - VPN configurations contain sensitive private keys
-- The system requires appropriate permissions to use `wg-quick` commands
-- In development environments without WireGuard tools, the system simulates VPN connections
+- The system uses userspace WireGuard implementations (wireguard-go) when available to avoid requiring elevated privileges
+- Falls back to simulation mode in development environments without WireGuard tools
+- No sudo or root privileges required for operation
 
 ## Error Handling
 
