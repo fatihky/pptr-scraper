@@ -22,6 +22,7 @@ const scrapeQuerySchema = z.object({
   waitForNetwork: z.coerce.boolean(),
   maxScrolls: z.coerce.number().int().min(1).optional(),
   noBrowser: z.coerce.boolean().default(false),
+  disableJs: z.coerce.boolean().default(false),
 });
 
 function cleanHeaders(headers: Record<string, string>): Record<string, string> {
@@ -52,6 +53,7 @@ app.get(
       noBrowser,
       screenshot,
       waitForNetwork,
+      disableJs,
     } = result.data;
 
     console.log('Tara:', url, {
@@ -60,12 +62,27 @@ app.get(
       noBrowser,
       screenshot,
       waitForNetwork,
+      disableJs,
     });
 
     if (typeof url !== 'string') {
       res
         .status(400)
         .json({ error: 'url parametresi zorunludur ve tek url verilmelidir.' });
+      return;
+    }
+
+    if (noBrowser && disableJs) {
+      res
+        .status(400)
+        .json({ error: 'noBrowser ve disableJs birlikte kullanılamaz.' });
+      return;
+    }
+
+    if (disableJs && infiniteScroll) {
+      res
+        .status(400)
+        .json({ error: 'disableJs ile infiniteScroll birlikte kullanılamaz.' });
       return;
     }
 
@@ -113,6 +130,7 @@ app.get(
           infiniteScroll,
           maxScrolls,
           waitForNetwork,
+          disableJs,
         });
       }
 
