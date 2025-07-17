@@ -27,6 +27,7 @@
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-recaptcha": "^3.6.8",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "wireguard-tools": "^0.1.0",
     "zod": "^3.25.42"
   },
   "devDependencies": {
