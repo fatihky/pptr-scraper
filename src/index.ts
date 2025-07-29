@@ -39,7 +39,7 @@ function cleanHeaders(headers: Record<string, string>): Record<string, string> {
 app.get(
   '/scrape',
   expressAsyncHandler(async (req, res): Promise<void> => {
-    logger.info('scrape:', req.query);
+    logger.info('scrape: %o', req.query);
 
     const result = scrapeQuerySchema.safeParse(req.query);
 
@@ -57,13 +57,9 @@ app.get(
       waitForNetwork,
     } = result.data;
 
-    logger.info('Tara:', url, {
-      infiniteScroll,
-      maxScrolls,
-      noBrowser,
-      screenshot,
-      waitForNetwork,
-    });
+    logger.setBindings({ options: result.data });
+
+    logger.info('Tara..');
 
     if (typeof url !== 'string') {
       res
@@ -104,7 +100,7 @@ app.get(
           body: buf.length > 0 ? buf : null,
         };
 
-        logger.info('resp body:', resp.body);
+        logger.info('resp body: %o', resp.body);
       } else {
         page = await pool.acquire();
 
@@ -147,13 +143,15 @@ app.get(
             ? 'gzip'
             : 'none';
 
-      logger.info(
-        'resp:',
-        resp.status,
-        resp.statusText,
-        { contentType, encoding },
-        resp.headers,
-      );
+      logger.setBindings({
+        status: resp.status,
+        statusText: resp.statusText,
+        contentType,
+        encoding,
+        headers: resp.headers,
+      });
+
+      logger.info('got response');
 
       const mappedHeaders = cleanHeaders(resp.headers);
 
@@ -182,8 +180,7 @@ app.get(
       errored = true;
 
       logger.error(
-        'Scrape işlemi hata ile sonuçlandı:',
-        url,
+        'Scrape işlemi hata ile sonuçlandı: %o %o',
         err,
         err instanceof Error ? err.constructor : null,
       );
