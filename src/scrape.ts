@@ -1,5 +1,6 @@
 import type { HTTPResponse, Page } from 'puppeteer';
 import { captchaSolver } from './captchaSolver';
+import { logger } from './logger';
 
 export interface ScrapeParams {
   page: Page;
@@ -43,7 +44,7 @@ async function solveCloudflareTurnstile(page: Page) {
     () => (window as any).turnstileConfiguration,
   );
 
-  console.log('turnstile config:', turnstileConfiguration);
+  logger.info('turnstile config:', turnstileConfiguration);
 
   const solution = await captchaSolver.turnstile(
     turnstileConfiguration.sitekey,
@@ -51,7 +52,7 @@ async function solveCloudflareTurnstile(page: Page) {
     turnstileConfiguration,
   );
 
-  console.log('submit turnstile solution:', solution);
+  logger.info('submit turnstile solution:', solution);
 
   await page.evaluate(
     // biome-ignore lint/suspicious/noExplicitAny: <explanation>
@@ -77,7 +78,7 @@ async function scrollToBottom(page: Page, opts?: { maxScrolls?: number }) {
   let previousHeight = 0;
   const newItemsLoadTimeout = 20000;
 
-  console.log('sayfayı en aşağı kadar kaydır');
+  logger.info('sayfayı en aşağı kadar kaydır');
 
   for (; scrolls < maxScrolls; scrolls++) {
     previousHeight = await page.evaluate(() => document.body.scrollHeight);
@@ -101,7 +102,7 @@ async function scrollToBottom(page: Page, opts?: { maxScrolls?: number }) {
       return coordinates;
     });
 
-    console.log('Yukarı taşıma koordinatları:', coordinates);
+    logger.info('Yukarı taşıma koordinatları:', coordinates);
 
     // scroll'u yukarı taşıdıktan sonra bir saniye kadar bekleyelim
     await new Promise((r) => setTimeout(r, 1000));
@@ -127,7 +128,7 @@ async function scrollToBottom(page: Page, opts?: { maxScrolls?: number }) {
 
     // sayfa uzamadıysa scroll'u sonlandıralım.
     if (currentHeight === previousHeight) {
-      console.log('sayfa kaydırması sonrası sayfanın yüksekliği değişmedi:', {
+      logger.info('sayfa kaydırması sonrası sayfanın yüksekliği değişmedi:', {
         currentHeight,
         previousHeight,
       });
@@ -139,7 +140,7 @@ async function scrollToBottom(page: Page, opts?: { maxScrolls?: number }) {
     await new Promise((r) => setTimeout(r, scrollDelayMs));
   }
 
-  console.log('sayfa kaydırma bitti. kaydırma sayısı:', scrolls);
+  logger.info('sayfa kaydırma bitti. kaydırma sayısı:', scrolls);
 }
 
 export async function scrape(
@@ -160,13 +161,13 @@ export async function scrape(
   }
 
   if (isCloudflareMitigateResponse(resp)) {
-    console.log(
+    logger.info(
       'Cloudflare mitigated our browsing. Try to automatically pass.',
     );
 
     await solveCloudflareTurnstile(page);
 
-    console.log('Try to scrape the same url again...');
+    logger.info('Try to scrape the same url again...');
 
     return await scrape(
       { page, url, infiniteScroll, waitForNetwork },

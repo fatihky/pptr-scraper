@@ -1,5 +1,6 @@
 import { program } from 'commander';
 import type { LaunchOptions } from 'puppeteer';
+import { logger } from './logger';
 
 // --no-headless dersek { headless: false } geliyor
 // böylece tarayıcı görünür oluyor.
@@ -24,7 +25,7 @@ const puppeteerLaunchOptions: LaunchOptions = {
   ),
 };
 
-console.log('program options:', opts);
-console.log('puppeteer launch options:', puppeteerLaunchOptions);
+logger.info('program options:', opts);
+logger.info('puppeteer launch options:', puppeteerLaunchOptions);
 
 export default { opts, puppeteerLaunchOptions };

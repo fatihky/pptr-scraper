@@ -1,7 +1,8 @@
+import assert from 'node:assert';
 import { newInjectedPage } from 'fingerprint-injector';
 import { createPool } from 'generic-pool';
-import assert from 'node:assert';
 import type { Browser, Page } from 'puppeteer';
+import { logger } from './logger';
 import program from './program';
 import { puppeteer } from './puppeteer';
 
@@ -42,7 +43,7 @@ async function newPage(attempts = 1): Promise<Page> {
 
     return await browser.newPage();
   } catch (err) {
-    console.log(
+    logger.info(
       'Cannot create a page. Attempt %d. Error: %s',
       attempts,
       err instanceof Error ? err.message : JSON.stringify(err),
@@ -70,7 +71,7 @@ export const pool = createPool<Page>(
     create: async () => {
       assert(browser);
 
-      console.log('pool: create a page');
+      logger.info('pool: create a page');
 
       // check if the browser is alive by creating a dummy page
       const dummy = await newPage();
@@ -87,16 +88,16 @@ export const pool = createPool<Page>(
       return page;
     },
     destroy: async (page) => {
-      console.log('pool: close a page');
+      logger.info('pool: close a page');
 
       await page.close().catch((err) => {
-        console.log('Failed to close the page. Ignoring error:', err);
+        logger.info('Failed to close the page. Ignoring error:', err);
 
-        console.log('TARAYICIYI SIFIRLA...');
+        logger.info('TARAYICIYI SIFIRLA...');
 
         Promise.resolve(browser?.close())
           .catch((err) =>
-            console.log('Tarayıcıyı kapatırken hata oluştu:', err),
+            logger.info('Tarayıcıyı kapatırken hata oluştu:', err),
           )
           .finally(launchBrowser);
       });

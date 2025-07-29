@@ -1,14 +1,15 @@
 import 'dotenv/config';
 
-import express from 'express';
-import nodeCleanup from 'node-cleanup';
 import type { Server } from 'node:http';
 import { gzipSync } from 'node:zlib';
+import express from 'express';
+import expressAsyncHandler from 'express-async-handler';
+import nodeCleanup from 'node-cleanup';
 import type { Page } from 'puppeteer';
 import { z } from 'zod';
+import { logger } from './logger';
 import { getBrowser, launchBrowser, pool } from './pool';
 import { type ScrapeResult, scrape } from './scrape';
-import expressAsyncHandler from 'express-async-handler';
 
 const app = express();
 const port = Number(process.env.PORT ?? '7000');
@@ -38,7 +39,7 @@ function cleanHeaders(headers: Record<string, string>): Record<string, string> {
 app.get(
   '/scrape',
   expressAsyncHandler(async (req, res): Promise<void> => {
-    console.log('scrape:', req.query);
+    logger.info('scrape:', req.query);
 
     const result = scrapeQuerySchema.safeParse(req.query);
 
@@ -56,7 +57,7 @@ app.get(
       waitForNetwork,
     } = result.data;
 
-    console.log('Tara:', url, {
+    logger.info('Tara:', url, {
       infiniteScroll,
       maxScrolls,
       noBrowser,
@@ -103,7 +104,7 @@ app.get(
           body: buf.length > 0 ? buf : null,
         };
 
-        console.log('resp body:', resp.body);
+        logger.info('resp body:', resp.body);
       } else {
         page = await pool.acquire();
 
@@ -146,7 +147,7 @@ app.get(
             ? 'gzip'
             : 'none';
 
-      console.log(
+      logger.info(
         'resp:',
         resp.status,
         resp.statusText,
@@ -180,7 +181,7 @@ app.get(
     } catch (err) {
       errored = true;
 
-      console.error(
+      logger.error(
         'Scrape işlemi hata ile sonuçlandı:',
         url,
         err,
@@ -207,22 +208,22 @@ app.get(
 async function main() {
   const host = process.env.HOST ?? '127.0.0.1';
   await launchBrowser();
-  console.log('Browser launched...');
+  logger.info('Browser launched...');
 
   server = app.listen(port, host);
 
-  console.log(`server listening on http://${host}:${port}`);
+  logger.info(`server listening on http://${host}:${port}`);
 }
 
 main().catch((err) => {
-  console.log('Main error:', err);
+  logger.info('Main error:', err);
 
   process.exit(1);
 });
 
 nodeCleanup(() => {
   if (server) {
-    console.log('Closing HTTP server...');
+    logger.info('Closing HTTP server...');
 
     server.close();
   }
@@ -231,11 +232,11 @@ nodeCleanup(() => {
     const browser = getBrowser();
 
     if (browser) {
-      console.log('Closing browser...');
+      logger.info('Closing browser...');
 
       browser
         .close()
-        .catch((err) => console.log('ERROR: Can not close browser:', err));
+        .catch((err) => logger.info('ERROR: Can not close browser:', err));
     }
   });
 });
