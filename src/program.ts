@@ -7,7 +7,7 @@ import { logger } from './logger';
 program
   .option('--no-headless', undefined, true)
   .option('--proxy <address>', 'Proxy address')
-  .option('--max-tabs <count>', 'Maximum open tabs', '2')
+  .option('--max-tabs <count>', 'Maximum open tabs', '4')
   .parse();
 
 const opts = program.opts<{
