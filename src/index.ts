@@ -39,7 +39,9 @@ function cleanHeaders(headers: Record<string, string>): Record<string, string> {
 app.get(
   '/scrape',
   expressAsyncHandler(async (req, res): Promise<void> => {
-    logger.info('scrape: %o', req.query);
+    const log = logger.child({});
+
+    log.info('scrape: %o', req.query);
 
     const result = scrapeQuerySchema.safeParse(req.query);
 
@@ -57,9 +59,9 @@ app.get(
       waitForNetwork,
     } = result.data;
 
-    logger.setBindings({ options: result.data });
+    log.setBindings({ options: result.data });
 
-    logger.info('Tara..');
+    log.info('Tara..');
 
     if (typeof url !== 'string') {
       res
@@ -100,13 +102,13 @@ app.get(
           body: buf.length > 0 ? buf : null,
         };
 
-        logger.info('resp body: %o', resp.body ?? {});
+        log.info('resp body: %o', resp.body ?? {});
       } else {
         page = await pool.acquire();
 
         await page.reload();
 
-        resp = await scrape({
+        resp = await scrape(log, {
           page,
           url,
           infiniteScroll,
@@ -143,7 +145,7 @@ app.get(
             ? 'gzip'
             : 'none';
 
-      logger.setBindings({
+      log.setBindings({
         status: resp.status,
         statusText: resp.statusText,
         contentType,
@@ -151,7 +153,7 @@ app.get(
         headers: resp.headers,
       });
 
-      logger.info('got response');
+      log.info('got response');
 
       const mappedHeaders = cleanHeaders(resp.headers);
 
@@ -179,7 +181,7 @@ app.get(
     } catch (err) {
       errored = true;
 
-      logger.error(
+      log.error(
         'Scrape işlemi hata ile sonuçlandı: %s %o',
         err instanceof Error ? err.message : String(err),
         err instanceof Error ? err.constructor : {},

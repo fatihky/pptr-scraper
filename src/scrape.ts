@@ -1,6 +1,6 @@
+import type { Logger } from 'pino';
 import type { HTTPResponse, Page } from 'puppeteer';
 import { captchaSolver } from './captchaSolver';
-import { logger } from './logger';
 
 export interface ScrapeParams {
   page: Page;
@@ -38,13 +38,13 @@ function isCloudflareMitigateResponse(resp: HTTPResponse): boolean {
   );
 }
 
-async function solveCloudflareTurnstile(page: Page) {
+async function solveCloudflareTurnstile(log: Logger, page: Page) {
   const turnstileConfiguration: TurnstileConfiguration = await page.evaluate(
     // biome-ignore lint/suspicious/noExplicitAny: bu sorunu aşmanın tek yolu böyle any kullanmak
     () => (window as any).turnstileConfiguration,
   );
 
-  logger.info('turnstile config: %o', turnstileConfiguration);
+  log.info('turnstile config: %o', turnstileConfiguration);
 
   const solution = await captchaSolver.turnstile(
     turnstileConfiguration.sitekey,
@@ -52,7 +52,7 @@ async function solveCloudflareTurnstile(page: Page) {
     turnstileConfiguration,
   );
 
-  logger.info('submit turnstile solution: %o', solution);
+  log.info('submit turnstile solution: %o', solution);
 
   await page.evaluate(
     // biome-ignore lint/suspicious/noExplicitAny: bu sorunu aşmanın tek yolu böyle any kullanmak
@@ -71,14 +71,18 @@ class MaxScrapeAttemptsExceededError extends Error {
   }
 }
 
-async function scrollToBottom(page: Page, opts?: { maxScrolls?: number }) {
+async function scrollToBottom(
+  log: Logger,
+  page: Page,
+  opts?: { maxScrolls?: number },
+) {
   const maxScrolls = opts?.maxScrolls ?? 20;
   let scrolls = 0;
   const scrollDelayMs = 800;
   let previousHeight = 0;
   const newItemsLoadTimeout = 20000;
 
-  logger.info('sayfayı en aşağı kadar kaydır');
+  log.info('sayfayı en aşağı kadar kaydır');
 
   for (; scrolls < maxScrolls; scrolls++) {
     previousHeight = await page.evaluate(() => document.body.scrollHeight);
@@ -102,7 +106,7 @@ async function scrollToBottom(page: Page, opts?: { maxScrolls?: number }) {
       return coordinates;
     });
 
-    logger.info('Yukarı taşıma koordinatları: %o', coordinates);
+    log.info('Yukarı taşıma koordinatları: %o', coordinates);
 
     // scroll'u yukarı taşıdıktan sonra bir saniye kadar bekleyelim
     await new Promise((r) => setTimeout(r, 1000));
@@ -128,13 +132,10 @@ async function scrollToBottom(page: Page, opts?: { maxScrolls?: number }) {
 
     // sayfa uzamadıysa scroll'u sonlandıralım.
     if (currentHeight === previousHeight) {
-      logger.info(
-        'sayfa kaydırması sonrası sayfanın yüksekliği değişmedi: %o',
-        {
-          currentHeight,
-          previousHeight,
-        },
-      );
+      log.info('sayfa kaydırması sonrası sayfanın yüksekliği değişmedi: %o', {
+        currentHeight,
+        previousHeight,
+      });
       break;
     }
 
@@ -143,10 +144,11 @@ async function scrollToBottom(page: Page, opts?: { maxScrolls?: number }) {
     await new Promise((r) => setTimeout(r, scrollDelayMs));
   }
 
-  logger.info('sayfa kaydırma bitti. kaydırma sayısı: %d', scrolls);
+  log.info('sayfa kaydırma bitti. kaydırma sayısı: %d', scrolls);
 }
 
 export async function scrape(
+  log: Logger,
   { maxScrolls, page, url, infiniteScroll, waitForNetwork }: ScrapeParams,
   attempts = 1,
 ): Promise<ScrapeResult | null> {
@@ -164,22 +166,21 @@ export async function scrape(
   }
 
   if (isCloudflareMitigateResponse(resp)) {
-    logger.info(
-      'Cloudflare mitigated our browsing. Try to automatically pass.',
-    );
+    log.info('Cloudflare mitigated our browsing. Try to automatically pass.');
 
-    await solveCloudflareTurnstile(page);
+    await solveCloudflareTurnstile(log, page);
 
-    logger.info('Try to scrape the same url again...');
+    log.info('Try to scrape the same url again...');
 
     return await scrape(
+      log,
       { page, url, infiniteScroll, waitForNetwork },
       attempts + 1,
     );
   }
 
   if (infiniteScroll) {
-    await scrollToBottom(page, { maxScrolls });
+    await scrollToBottom(log, page, { maxScrolls });
   }
 
   if (waitForNetwork) {
