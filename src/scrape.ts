@@ -40,7 +40,7 @@ function isCloudflareMitigateResponse(resp: HTTPResponse): boolean {
 
 async function solveCloudflareTurnstile(page: Page) {
   const turnstileConfiguration: TurnstileConfiguration = await page.evaluate(
-    // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+    // biome-ignore lint/suspicious/noExplicitAny: bu sorunu aşmanın tek yolu böyle any kullanmak
     () => (window as any).turnstileConfiguration,
   );
 
@@ -55,7 +55,7 @@ async function solveCloudflareTurnstile(page: Page) {
   logger.info('submit turnstile solution: %o', solution);
 
   await page.evaluate(
-    // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+    // biome-ignore lint/suspicious/noExplicitAny: bu sorunu aşmanın tek yolu böyle any kullanmak
     (val) => (window as any).tsCallback?.(val),
     solution.data,
   );
@@ -128,10 +128,13 @@ async function scrollToBottom(page: Page, opts?: { maxScrolls?: number }) {
 
     // sayfa uzamadıysa scroll'u sonlandıralım.
     if (currentHeight === previousHeight) {
-      logger.info('sayfa kaydırması sonrası sayfanın yüksekliği değişmedi: %o', {
-        currentHeight,
-        previousHeight,
-      });
+      logger.info(
+        'sayfa kaydırması sonrası sayfanın yüksekliği değişmedi: %o',
+        {
+          currentHeight,
+          previousHeight,
+        },
+      );
       break;
     }
 
