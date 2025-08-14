@@ -60,7 +60,7 @@ async function solveCloudflareTurnstile(log: Logger, page: Page) {
     solution.data,
   );
 
-  await page.waitForNetworkIdle();
+  await page.waitForNetworkIdle({ timeout: 300000 });
 }
 
 class MaxScrapeAttemptsExceededError extends Error {
