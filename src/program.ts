@@ -25,7 +25,7 @@ const puppeteerLaunchOptions: LaunchOptions = {
   ),
 };
 
-logger.info('program options:', opts);
-logger.info('puppeteer launch options:', puppeteerLaunchOptions);
+logger.info('program options: %o', opts);
+logger.info('puppeteer launch options: %o', puppeteerLaunchOptions);
 
 export default { opts, puppeteerLaunchOptions };

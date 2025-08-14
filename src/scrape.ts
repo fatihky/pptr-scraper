@@ -44,7 +44,7 @@ async function solveCloudflareTurnstile(page: Page) {
     () => (window as any).turnstileConfiguration,
   );
 
-  logger.info('turnstile config:', turnstileConfiguration);
+  logger.info('turnstile config: %o', turnstileConfiguration);
 
   const solution = await captchaSolver.turnstile(
     turnstileConfiguration.sitekey,
@@ -52,7 +52,7 @@ async function solveCloudflareTurnstile(page: Page) {
     turnstileConfiguration,
   );
 
-  logger.info('submit turnstile solution:', solution);
+  logger.info('submit turnstile solution: %o', solution);
 
   await page.evaluate(
     // biome-ignore lint/suspicious/noExplicitAny: <explanation>
@@ -102,7 +102,7 @@ async function scrollToBottom(page: Page, opts?: { maxScrolls?: number }) {
       return coordinates;
     });
 
-    logger.info('Yukarı taşıma koordinatları:', coordinates);
+    logger.info('Yukarı taşıma koordinatları: %o', coordinates);
 
     // scroll'u yukarı taşıdıktan sonra bir saniye kadar bekleyelim
     await new Promise((r) => setTimeout(r, 1000));
@@ -128,7 +128,7 @@ async function scrollToBottom(page: Page, opts?: { maxScrolls?: number }) {
 
     // sayfa uzamadıysa scroll'u sonlandıralım.
     if (currentHeight === previousHeight) {
-      logger.info('sayfa kaydırması sonrası sayfanın yüksekliği değişmedi:', {
+      logger.info('sayfa kaydırması sonrası sayfanın yüksekliği değişmedi: %o', {
         currentHeight,
         previousHeight,
       });
@@ -140,7 +140,7 @@ async function scrollToBottom(page: Page, opts?: { maxScrolls?: number }) {
     await new Promise((r) => setTimeout(r, scrollDelayMs));
   }
 
-  logger.info('sayfa kaydırma bitti. kaydırma sayısı:', scrolls);
+  logger.info('sayfa kaydırma bitti. kaydırma sayısı: %d', scrolls);
 }
 
 export async function scrape(

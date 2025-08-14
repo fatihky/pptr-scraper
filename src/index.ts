@@ -100,7 +100,7 @@ app.get(
           body: buf.length > 0 ? buf : null,
         };
 
-        logger.info('resp body: %o', resp.body);
+        logger.info('resp body: %o', resp.body ?? {});
       } else {
         page = await pool.acquire();
 
@@ -180,9 +180,9 @@ app.get(
       errored = true;
 
       logger.error(
-        'Scrape işlemi hata ile sonuçlandı: %o %o',
-        err,
-        err instanceof Error ? err.constructor : null,
+        'Scrape işlemi hata ile sonuçlandı: %s %o',
+        err instanceof Error ? err.message : String(err),
+        err instanceof Error ? err.constructor : {},
       );
 
       await page?.screenshot({
@@ -213,7 +213,11 @@ async function main() {
 }
 
 main().catch((err) => {
-  logger.info('Main error:', err);
+  logger.error(
+    'Main error: %s stack=%s',
+    err instanceof Error ? err.message : String(err),
+    (err instanceof Error && err.stack) || '-',
+  );
 
   process.exit(1);
 });
