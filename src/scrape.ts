@@ -144,9 +144,11 @@ async function scrollToBottom(page: Page, opts?: { maxScrolls?: number }) {
 }
 
 export async function scrape(
-  { maxScrolls, page, url, infiniteScroll, waitForNetwork, disableJs }: ScrapeParams,
+  params: ScrapeParams,
   attempts = 1,
 ): Promise<ScrapeResult | null> {
+  const { maxScrolls, page, url, infiniteScroll, waitForNetwork, disableJs } = params;
+  
   if (attempts > maxAttempts) {
     throw new MaxScrapeAttemptsExceededError(url);
   }
@@ -174,10 +176,7 @@ export async function scrape(
 
     console.log('Try to scrape the same url again...');
 
-    return await scrape(
-      { page, url, infiniteScroll, waitForNetwork, disableJs },
-      attempts + 1,
-    );
+    return await scrape(params, attempts + 1);
   }
 
   if (infiniteScroll) {
