@@ -8,12 +8,14 @@ program
   .option('--no-headless', undefined, true)
   .option('--proxy <address>', 'Proxy address')
   .option('--max-tabs <count>', 'Maximum open tabs', '4')
+  .option('--no-block-resources', 'Disable resource blocking', true)
   .parse();
 
 const opts = program.opts<{
   headless: boolean;
   maxTabs: string;
   proxy: string | undefined;
+  blockResources: boolean;
 }>();
 
 const puppeteerLaunchOptions: LaunchOptions = {
