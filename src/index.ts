@@ -23,7 +23,6 @@ const scrapeQuerySchema = z.object({
   waitForNetwork: z.coerce.boolean(),
   maxScrolls: z.coerce.number().int().min(1).optional(),
   noBrowser: z.coerce.boolean().default(false),
-  blockResources: z.coerce.boolean().default(true),
 });
 
 function cleanHeaders(headers: Record<string, string>): Record<string, string> {
@@ -58,7 +57,6 @@ app.get(
       noBrowser,
       screenshot,
       waitForNetwork,
-      blockResources,
     } = result.data;
 
     log.setBindings({ options: result.data });
@@ -116,7 +114,6 @@ app.get(
           infiniteScroll,
           maxScrolls,
           waitForNetwork,
-          blockResources,
         });
       }
 

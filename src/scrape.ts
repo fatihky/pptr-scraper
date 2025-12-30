@@ -8,7 +8,6 @@ export interface ScrapeParams {
   infiniteScroll?: boolean;
   waitForNetwork?: boolean;
   maxScrolls?: number;
-  blockResources?: boolean;
 }
 
 export interface ScrapeResult {
@@ -150,38 +149,11 @@ async function scrollToBottom(
 
 export async function scrape(
   log: Logger,
-  { maxScrolls, page, url, infiniteScroll, waitForNetwork, blockResources = true }: ScrapeParams,
+  { maxScrolls, page, url, infiniteScroll, waitForNetwork }: ScrapeParams,
   attempts = 1,
 ): Promise<ScrapeResult | null> {
   if (attempts > maxAttempts) {
     throw new MaxScrapeAttemptsExceededError(url);
-  }
-
-  // Set up request interception if resource blocking is enabled
-  if (blockResources) {
-    // Remove all existing request listeners to avoid duplicates
-    page.removeAllListeners('request');
-
-    await page.setRequestInterception(true);
-
-    const blockedResourceTypes = ['image', 'stylesheet', 'media', 'font'];
-
-    page.on('request', (request) => {
-      const resourceType = request.resourceType();
-
-      if (blockedResourceTypes.includes(resourceType)) {
-        log.debug('Blocking resource: %s (%s)', request.url(), resourceType);
-        request.abort();
-      } else {
-        request.continue();
-      }
-    });
-
-    log.info('Resource blocking enabled: blocking %o', blockedResourceTypes);
-  } else {
-    // If resource blocking is disabled, ensure request interception is off
-    page.removeAllListeners('request');
-    await page.setRequestInterception(false);
   }
 
   const resp = await page.goto(url, {
@@ -202,7 +174,7 @@ export async function scrape(
 
     return await scrape(
       log,
-      { page, url, infiniteScroll, waitForNetwork, maxScrolls, blockResources },
+      { page, url, infiniteScroll, waitForNetwork, maxScrolls },
       attempts + 1,
     );
   }
