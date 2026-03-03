@@ -30,19 +30,31 @@ interface TurnstileConfiguration {
   json: 1;
 }
 
+interface WindowWithTurnstile {
+  turnstileConfiguration?: TurnstileConfiguration;
+  tsCallback?: (response: string) => void;
+}
+
 const maxAttempts = 1;
 
 function isCloudflareMitigateResponse(resp: HTTPResponse): boolean {
+  const headers = resp.headers();
   return (
-    resp.status() === 403 && resp.headers()['cf-mitigated'] === 'challenge'
+    resp.status() === 403 &&
+    (headers['cf-mitigated'] || headers['CF-Mitigated']) === 'challenge'
   );
 }
 
 async function solveCloudflareTurnstile(log: Logger, page: Page) {
-  const turnstileConfiguration: TurnstileConfiguration = await page.evaluate(
-    // biome-ignore lint/suspicious/noExplicitAny: bu sorunu aşmanın tek yolu böyle any kullanmak
-    () => (window as any).turnstileConfiguration,
-  );
+  const turnstileConfiguration = await page.evaluate(() => {
+    const win = window as WindowWithTurnstile;
+    return win.turnstileConfiguration || null;
+  });
+
+  if (!turnstileConfiguration) {
+    log.error('Turnstile configuration not found');
+    return;
+  }
 
   log.info('turnstile config: %o', turnstileConfiguration);
 
@@ -54,13 +66,12 @@ async function solveCloudflareTurnstile(log: Logger, page: Page) {
 
   log.info('submit turnstile solution: %o', solution);
 
-  await page.evaluate(
-    // biome-ignore lint/suspicious/noExplicitAny: bu sorunu aşmanın tek yolu böyle any kullanmak
-    (val) => (window as any).tsCallback?.(val),
-    solution.data,
-  );
+  await page.evaluate((val) => {
+    const win = window as WindowWithTurnstile;
+    win.tsCallback?.(val);
+  }, solution.data);
 
-  await page.waitForNetworkIdle({ timeout: 300000 });
+  await page.waitForNetworkIdle({ timeout: 30000 });
 }
 
 class MaxScrapeAttemptsExceededError extends Error {
@@ -150,70 +161,67 @@ async function scrollToBottom(
 export async function scrape(
   log: Logger,
   { maxScrolls, page, url, infiniteScroll, waitForNetwork }: ScrapeParams,
-  attempts = 1,
 ): Promise<ScrapeResult | null> {
-  if (attempts > maxAttempts) {
-    throw new MaxScrapeAttemptsExceededError(url);
-  }
+  let attempts = 0;
 
-  const resp = await page.goto(url, {
-    timeout: 180000,
-    waitUntil: waitForNetwork ? 'networkidle0' : undefined,
-  });
+  while (attempts < maxAttempts) {
+    attempts++;
 
-  if (resp === null) {
-    return null;
-  }
+    const resp = await page.goto(url, {
+      timeout: 180000,
+      waitUntil: waitForNetwork ? 'networkidle0' : undefined,
+    });
 
-  if (isCloudflareMitigateResponse(resp)) {
-    log.info('Cloudflare mitigated our browsing. Try to automatically pass.');
-
-    await solveCloudflareTurnstile(log, page);
-
-    log.info('Try to scrape the same url again...');
-
-    return await scrape(
-      log,
-      { page, url, infiniteScroll, waitForNetwork, maxScrolls },
-      attempts + 1,
-    );
-  }
-
-  if (infiniteScroll) {
-    await scrollToBottom(log, page, { maxScrolls });
-  }
-
-  if (waitForNetwork) {
-    try {
-      // iki dakikaya kadar bağlantıların kapanmasını bekle
-      await page.waitForNetworkIdle({ timeout: 120000 });
-    } catch {
-      // ignore
+    if (resp === null) {
+      return null;
     }
-  }
 
-  let body: Buffer<ArrayBufferLike> | null = null;
+    if (isCloudflareMitigateResponse(resp)) {
+      log.info('Cloudflare mitigated our browsing. Try to automatically pass.');
 
-  try {
-    body = infiniteScroll
-      ? Buffer.from(await page.content())
-      : await resp.buffer();
-  } catch (err) {
+      await solveCloudflareTurnstile(log, page);
+
+      log.info('Try to scrape the same url again...');
+      continue;
+    }
+
     if (infiniteScroll) {
-      throw err;
+      await scrollToBottom(log, page, { maxScrolls });
     }
 
-    // bazı sayfalar not found dönüyor ama body boş geliyor.
-    // bu durumda resp.buffer() hata veriyor. o yüzden infiniteScroll
-    // durumu dışında body dönmüyoruz
+    if (waitForNetwork) {
+      try {
+        await page.waitForNetworkIdle({ timeout: 120000 });
+      } catch (err) {
+        log.warn('network idle timeout: %s', String(err));
+      }
+    }
+
+    let body: Buffer | null = null;
+
+    try {
+      body = infiniteScroll
+        ? Buffer.from(await page.content())
+        : await resp.buffer();
+    } catch (err) {
+      if (infiniteScroll) {
+        throw err;
+      }
+
+      // bazı sayfalar not found dönüyor ama body boş geliyor.
+      // bu durumda resp.buffer() hata veriyor. o yüzden infiniteScroll
+      // durumu dışında body dönmüyoruz
+    }
+
+    return {
+      // ekran kaydırılmışsa html içeriğini döndür
+      body,
+      headers: resp.headers(),
+      status: resp.status(),
+      statusText: resp.statusText(),
+      finalUrl: page.url(),
+    };
   }
 
-  return {
-    // ekran kaydırılmışsa html içeriğini döndür
-    body,
-    headers: resp.headers(),
-    status: resp.status(),
-    statusText: resp.statusText(),
-    finalUrl: page.url(),
-  };
+  throw new MaxScrapeAttemptsExceededError(url);
 }
