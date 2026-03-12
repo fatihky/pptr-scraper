@@ -25,6 +25,7 @@ const puppeteerLaunchOptions: LaunchOptions = {
   args: ['--no-sandbox'].concat(
     opts.proxy ? `--proxy-server=${opts.proxy}` : [],
   ),
+  defaultViewport: { width: 1920, height: 1080 },
 };
 
 logger.info('program options: %o', opts);

@@ -38,7 +38,7 @@ async function newPage(attempts = 1): Promise<Page> {
 
   try {
     if (!browser) {
-      browser = await puppeteer.launch(program.puppeteerLaunchOptions);
+      browser = await launchBrowser();
     }
 
     return await browser.newPage();
@@ -111,7 +111,26 @@ export const pool = createPool<Page>(
 );
 
 export async function launchBrowser() {
-  browser = await puppeteer.launch(program.puppeteerLaunchOptions);
+  const b = await puppeteer.launch(program.puppeteerLaunchOptions);
+
+  // close all existing tabs
+  const existingPages = await b.pages();
+
+  try {
+    for (const page of existingPages) {
+      await page.close();
+    }
+  } catch (err) {
+    logger.warn(
+      'Failed to close all pages: %s',
+      err instanceof Error ? err.message : String(err),
+    );
+    logger.warn('Ignored error above.');
+  }
+
+  browser = b;
+
+  return b;
 }
 
 export function getBrowser() {
