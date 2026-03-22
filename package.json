@@ -25,21 +25,21 @@
     "node-cleanup": "^2.1.2",
     "pino": "^10.3.1",
     "pino-pretty": "^13.1.3",
-    "puppeteer": "^24.38.0",
+    "puppeteer": "^24.40.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-recaptcha": "^3.6.8",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.5",
+    "@biomejs/biome": "^2.4.8",
     "@types/express": "^5.0.6",
-    "@types/node": "^25.3.3",
+    "@types/node": "^25.5.0",
     "@types/node-cleanup": "^2.1.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },
-  "packageManager": "pnpm@10.30.3",
+  "packageManager": "pnpm@10.32.1",
   "pnpm": {
     "onlyBuiltDependencies": [
       "@biomejs/biome",
