@@ -91,13 +91,14 @@ export const pool = createPool<Page>(
       logger.info('pool: close a page');
 
       await page.close().catch((err) => {
-        logger.info('Failed to close the page. Ignoring error:', err);
+        console.log('Failed to close the page. Ignoring error:', err);
+        console.dir(err);
 
         logger.info('TARAYICIYI SIFIRLA...');
 
         Promise.resolve(browser?.close())
           .catch((err) =>
-            logger.info('Tarayıcıyı kapatırken hata oluştu:', err),
+            console.log('Tarayıcıyı kapatırken hata oluştu:', err),
           )
           .finally(launchBrowser);
       });
