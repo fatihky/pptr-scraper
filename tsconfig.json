@@ -1,8 +1,9 @@
 {
   "compilerOptions": {
     "esModuleInterop": true,
-    "lib": ["DOM", "ES2016"],
+    "lib": ["DOM", "ES2018"],
     "strict": true,
+    "rootDir": "./src",
     "outDir": "./dist",
     "skipLibCheck": true
   }
