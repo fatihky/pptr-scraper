@@ -17,12 +17,12 @@ const port = Number(process.env.PORT ?? '7000');
 let server: Server | null = null;
 
 const scrapeQuerySchema = z.object({
-  url: z.string().url(),
-  infiniteScroll: z.coerce.boolean(),
-  screenshot: z.coerce.boolean(),
-  waitForNetwork: z.coerce.boolean(),
+  url: z.url(),
+  infiniteScroll: z.coerce.boolean().optional(),
+  screenshot: z.coerce.boolean().optional(),
+  waitForNetwork: z.coerce.boolean().optional(),
   maxScrolls: z.coerce.number().int().min(1).optional(),
-  noBrowser: z.coerce.boolean().default(false),
+  noBrowser: z.coerce.boolean().default(false).optional(),
 });
 
 function cleanHeaders(headers: Record<string, string>): Record<string, string> {
