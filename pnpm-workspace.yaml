@@ -1,4 +1,16 @@
 allowBuilds:
-  puppeteer: set this to true or false
-minimumReleaseAgeExclude:
-  - '@types/node@25.9.1'
+  '"': true
+  /: true
+  '@': true
+  '[': true
+  ']': true
+  a: true
+  c: true
+  e: true
+  h: true
+  l: true
+  p: true
+  puppeteer: true
+  r: true
+  t: true
+  w: true
