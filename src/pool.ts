@@ -80,10 +80,22 @@ export const pool = createPool<Page>(
 
       const page = await newInjectedPage(browser);
 
+      await page.setRequestInterception(true)
+
       // github.com/trending sayfası 304 dönüyor bize
-      page.setCacheEnabled(false);
+      page.setCacheEnabled(true);
 
       page.evaluateOnNewDocument(turnstileScript);
+
+      page.on('request', req => {
+        if (req.url().endsWith('.css')) {
+          logger.trace('abort: %s', req.url())
+          return req.abort()
+        }
+
+        logger.trace('continue: %s', req.url())
+        req.continue()
+      })
 
       return page;
     },
